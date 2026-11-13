@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Name=Debrief
+Name[da]=Debrief
+Comment=Debug out loud: a transcript with screenshots you ask for by voice
+Comment[da]=Fejlsøg højt: en udskrift med skærmbilleder, du beder om med stemmen
+Exec=debrief
+Icon=debrief
+Terminal=false
+Categories=Utility;Development;
+Keywords=bug;report;screenshot;transcript;voice;record;
+StartupWMClass=debrief
+Actions=toggle;
+
+[Desktop Action toggle]
+Name=Start or stop a session
+Name[da]=Start eller stop en session
+Exec=debrief toggle

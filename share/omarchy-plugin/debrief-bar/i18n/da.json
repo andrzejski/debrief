@@ -1,0 +1,8 @@
+{
+  "tooltip.idle": "Debrief: klik for at starte en fejlsøgningssession",
+  "tooltip.recording": {
+    "one": "Debrief optager, %1 skærmbillede indtil videre. Klik for at stoppe.",
+    "other": "Debrief optager, %1 skærmbilleder indtil videre. Klik for at stoppe."
+  },
+  "tooltip.finishing": "Debrief gør udskriften færdig"
+}

@@ -1,0 +1,8 @@
+{
+  "tooltip.idle": "Debrief: click to start a debugging session",
+  "tooltip.recording": {
+    "one": "Debrief is recording, %1 screenshot so far. Click to stop.",
+    "other": "Debrief is recording, %1 screenshots so far. Click to stop."
+  },
+  "tooltip.finishing": "Debrief is finishing the transcript"
+}

@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "debrief.bar",
+  "name": "Debrief",
+  "version": "0.1.0",
+  "author": "Debrief",
+  "license": "MIT",
+  "description": "Start and stop a Debrief debugging session from the bar.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Widget.qml"
+  },
+  "barWidget": {
+    "displayName": "Debrief",
+    "description": "Click to start or stop recording a debugging session; right-click opens Debrief, middle-click the session folder.",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

@@ -1,0 +1,425 @@
+#include "backend.h"
+
+#include <QCoreApplication>
+#include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QProcess>
+#include <QSaveFile>
+#include <QStandardPaths>
+#include <QUrl>
+#include <algorithm>
+
+Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, const QString &root,
+                 const QString &stateFile, QObject *parent)
+    : QObject(parent), m_audio(audio), m_screenshots(screenshots), m_transcriber(transcriber),
+      m_root(root.isEmpty() ? Debrief::defaultRoot() : root),
+      m_stateFile(stateFile.isEmpty() ? defaultStateFile() : stateFile), m_segmenter(kRate) {
+    for (QObject *service : {static_cast<QObject *>(audio), static_cast<QObject *>(screenshots),
+                             static_cast<QObject *>(transcriber)})
+        service->setParent(this);
+    m_notice = m_transcriber->unavailableReason();
+
+    connect(m_audio, &AudioSource::audio, this, &Backend::onAudio);
+    connect(m_audio, &AudioSource::stopped, this, &Backend::onAudioStopped);
+    connect(m_audio, &AudioSource::failed, this, [this](const QString &message) {
+        setError(message);
+        // What was recorded up to here is still saved.
+        if (m_state == Recording) {
+            setState(Finishing);
+            onAudioStopped();
+        }
+    });
+    connect(m_screenshots, &Screenshotter::captured, this, &Backend::onCaptured);
+    connect(m_transcriber, &Transcriber::transcribed, this, &Backend::onTranscribed);
+    writeState();
+}
+
+Backend::Backend(QObject *parent)
+    : Backend(new FfmpegAudioSource, new GrimScreenshotter, new SuperwhisperTranscriber, {}, {}, parent) {}
+
+Backend::~Backend() {
+    // The bar should not show a session that went with the app.
+    m_state = Idle;
+    writeState();
+}
+
+QString Backend::defaultStateFile() {
+    QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (runtime.isEmpty())
+        runtime = QDir::tempPath();
+    return runtime + "/debrief/state.json";
+}
+
+QString Backend::reportPrompt() {
+    return QStringLiteral(
+        "This folder is a Debrief debugging session. transcript.md is what I said while debugging, with each "
+        "screenshot placed under the words I said when I took it; session.json has the same links "
+        "(screenshots[].transcript_index, said, and context). Read both, look at every screenshot in "
+        "screenshots/, and write bug-report.md here: a one-paragraph summary, steps to reproduce, expected and "
+        "actual behaviour, and then each issue I hit in order, with its screenshot embedded, its time code, and "
+        "what I said about it. Quote me where it helps and don't invent details the session doesn't show.");
+}
+
+QString Backend::state() const {
+    switch (m_state) {
+    case Idle: return "idle";
+    case Recording: return "recording";
+    case Finishing: return "finishing";
+    }
+    return {};
+}
+
+int Backend::pendingCount() const {
+    int pending = int(std::count_if(m_log.speech.begin(), m_log.speech.end(),
+                                    [](const Speech &s) { return s.state == Speech::Pending; }));
+    for (const Capture &capture : m_captures)
+        if (capture.manual && !capture.done)
+            ++pending;
+    return pending;
+}
+
+void Backend::setState(State state) {
+    if (m_state == state)
+        return;
+    m_state = state;
+    writeState();
+    emit stateChanged();
+}
+
+void Backend::setError(const QString &error) {
+    if (m_error == error)
+        return;
+    m_error = error;
+    emit errorChanged();
+}
+
+void Backend::dismissError() { setError({}); }
+
+void Backend::toggle() {
+    if (m_state == Idle)
+        start();
+    else if (m_state == Recording)
+        stop();
+}
+
+void Backend::start() {
+    if (m_state != Idle)
+        return;
+    const QDateTime now = QDateTime::currentDateTime();
+    QString folder = m_root + "/" + now.toString("yyyy-MM-dd_HH-mm-ss");
+    for (int n = 2; QFileInfo::exists(folder); ++n)
+        folder = m_root + "/" + now.toString("yyyy-MM-dd_HH-mm-ss") + QString("_%1").arg(n);
+    if (!QDir().mkpath(folder + "/screenshots") || !QDir().mkpath(folder + "/.work")) {
+        setError(tr("Couldn't create the session folder %1.").arg(folder));
+        return;
+    }
+    if (!m_wav.open(folder + "/audio.wav")) {
+        setError(tr("Couldn't write the recording: %1").arg(m_wav.errorString()));
+        return;
+    }
+
+    setError({});
+    m_folder = folder;
+    m_log = SessionLog();
+    m_log.started = now;
+    m_segmenter = Segmenter(kRate);
+    m_buffer.clear();
+    m_bufferStart = 0;
+    m_samples = 0;
+    m_captures.clear();
+    m_speaking = false;
+    m_audioStopped = false;
+    emit folderChanged();
+    emit elapsedChanged();
+    emit speakingChanged();
+    emit entriesChanged();
+    setState(Recording);
+    save();
+    m_audio->start();
+}
+
+void Backend::stop() {
+    if (m_state != Recording)
+        return;
+    setState(Finishing);
+    m_audio->stop();
+}
+
+void Backend::onAudio(const QByteArray &pcm) {
+    if (m_state != Recording)
+        return;
+    if (!m_wav.append(pcm))
+        setError(tr("Couldn't write the recording: %1").arg(m_wav.errorString()));
+    m_buffer.append(pcm);
+    const int before = elapsed();
+    m_samples += pcm.size() / 2;
+
+    const auto ended = m_segmenter.feed(reinterpret_cast<const qint16 *>(pcm.constData()), pcm.size() / 2);
+    for (const auto &utterance : ended)
+        onUtterance(utterance);
+
+    // Keep only what the longest utterance and its padding can still need.
+    const qint64 keep = m_segmenter.maxLength() + kRate * 5;
+    const qint64 have = m_buffer.size() / 2;
+    if (have > keep * 2) {
+        const qint64 drop = have - keep;
+        m_buffer.remove(0, drop * 2);
+        m_bufferStart += drop;
+    }
+
+    if (m_segmenter.inSpeech() != m_speaking) {
+        m_speaking = m_segmenter.inSpeech();
+        emit speakingChanged();
+    }
+    if (elapsed() != before)
+        emit elapsedChanged();
+}
+
+void Backend::onUtterance(const Segmenter::Utterance &utterance) {
+    const int index = m_log.speech.size();
+    Speech speech;
+    speech.startMs = utterance.start * 1000 / kRate;
+    speech.endMs = utterance.end * 1000 / kRate;
+    m_log.speech.append(speech);
+
+    const qint64 from = std::max<qint64>(0, utterance.start - m_bufferStart);
+    const qint64 to = std::min<qint64>(m_buffer.size() / 2, utterance.end - m_bufferStart);
+    const QString chunk = QString("%1/.work/speech-%2.wav").arg(m_folder).arg(index, 4, 10, QChar('0'));
+    if (to <= from || !Debrief::WavWriter::write(chunk, m_buffer.mid(from * 2, (to - from) * 2), kRate)) {
+        m_log.speech[index].state = Speech::Failed;
+        m_log.speech[index].error = "couldn't cut the audio";
+    } else if (m_notice.isEmpty()) {
+        // The screen is captured the moment the words end, which is when
+        // "screenshot this" was just said, and kept only if the words turn out
+        // to ask for it.
+        Capture capture;
+        capture.speech = index;
+        capture.timeMs = speech.endMs;
+        capture.path = QString("%1/.work/candidate-%2.png").arg(m_folder).arg(index, 4, 10, QChar('0'));
+        m_captures.insert(index, capture);
+        m_screenshots->capture(index, capture.path);
+        m_transcriber->transcribe(index, chunk);
+    } else {
+        m_log.speech[index].state = Speech::Failed;
+        m_log.speech[index].error = "Superwhisper isn't installed";
+        QFile::remove(chunk);
+    }
+    m_wav.updateHeader();
+    m_log.durationMs = m_samples * 1000 / kRate;
+    save();
+    emit entriesChanged();
+}
+
+void Backend::onTranscribed(int id, bool ok, const QString &text, const QString &error) {
+    if (id < 0 || id >= m_log.speech.size() || m_folder.isEmpty())
+        return;
+    Speech &speech = m_log.speech[id];
+    speech.state = ok ? Speech::Done : Speech::Failed;
+    speech.text = text;
+    speech.error = error;
+    QFile::remove(QString("%1/.work/speech-%2.wav").arg(m_folder).arg(id, 4, 10, QChar('0')));
+    resolve(id);
+    save();
+    emit entriesChanged();
+    finishIfDone();
+}
+
+void Backend::onCaptured(int id, bool ok, const QString &error) {
+    auto it = m_captures.find(id);
+    if (it == m_captures.end())
+        return;
+    it->done = true;
+    it->ok = ok;
+    it->error = error;
+    if (it->manual) {
+        const Capture capture = *it;
+        m_captures.erase(it);
+        if (ok)
+            keepShot(capture, "manual");
+        else
+            setError(tr("Couldn't capture the screen. %1").arg(error));
+        save();
+        emit entriesChanged();
+        finishIfDone();
+        return;
+    }
+    resolve(id);
+    save();
+    emit entriesChanged();
+    finishIfDone();
+}
+
+// Decides a candidate screenshot once both its capture and its words are in.
+void Backend::resolve(int id) {
+    auto it = m_captures.find(id);
+    if (it == m_captures.end() || it->manual || !it->done || id >= m_log.speech.size()
+        || m_log.speech[id].state == Speech::Pending)
+        return;
+    const Capture capture = *it;
+    m_captures.erase(it);
+    const Speech &speech = m_log.speech[id];
+    const bool wanted = speech.state == Speech::Done && Debrief::asksForScreenshot(speech.text);
+    if (wanted && capture.ok)
+        keepShot(capture, "voice");
+    else
+        QFile::remove(capture.path);
+    if (wanted && !capture.ok)
+        setError(tr("Couldn't capture the screen. %1").arg(capture.error));
+}
+
+void Backend::keepShot(const Capture &capture, const QString &source) {
+    Shot shot;
+    shot.number = m_log.shots.size() + 1;
+    shot.timeMs = capture.timeMs;
+    shot.source = source;
+    shot.speech = capture.speech;
+    shot.file = shotName(shot.number, shot.timeMs);
+    const QString target = m_folder + "/" + shot.file;
+    if (capture.path != target && !QFile::rename(capture.path, target)) {
+        setError(tr("Couldn't save screenshot %1.").arg(shot.number));
+        return;
+    }
+    m_log.shots.append(shot);
+    writeState();
+}
+
+QString Backend::shotName(int number, qint64 timeMs) const {
+    return QString("screenshots/shot-%1-%2.png")
+        .arg(number, 2, 10, QChar('0'))
+        .arg(Debrief::timecode(timeMs).replace(':', '-'));
+}
+
+void Backend::screenshotNow() {
+    if (m_state != Recording)
+        return;
+    Capture capture;
+    capture.manual = true;
+    capture.timeMs = m_samples * 1000 / kRate;
+    // It belongs to the words being said, or else to the last ones.
+    capture.speech = m_segmenter.inSpeech() ? m_log.speech.size() : m_log.speech.size() - 1;
+    const int id = m_nextManual++;
+    // A temporary name: the number is given when it lands, in order.
+    capture.path = QString("%1/.work/manual-%2.png").arg(m_folder).arg(id);
+    m_captures.insert(id, capture);
+    emit entriesChanged();
+    m_screenshots->capture(id, capture.path);
+}
+
+void Backend::onAudioStopped() {
+    if (m_state != Finishing)
+        return;
+    m_audioStopped = true;
+    if (const auto last = m_segmenter.flush())
+        onUtterance(*last);
+    if (m_speaking) {
+        m_speaking = false;
+        emit speakingChanged();
+    }
+    m_log.durationMs = m_samples * 1000 / kRate;
+    m_wav.close();
+    finishIfDone();
+}
+
+void Backend::finishIfDone() {
+    if (m_state != Finishing || !m_audioStopped || pendingCount() > 0 || !m_captures.isEmpty())
+        return;
+    m_log.finished = true;
+    save();
+    QDir(m_folder + "/.work").removeRecursively();
+    setState(Idle);
+    emit entriesChanged();
+    if (m_notify)
+        startDetachedQuietly("notify-send",
+                            {"--app-name=Debrief", "--icon=debrief", tr("Debrief session saved"),
+                             tr("%Ln screenshots, %1 of audio, in %2", "", m_log.shots.size())
+                                 .arg(Debrief::timecode(m_log.durationMs), QDir::toNativeSeparators(m_folder))});
+    emit finished(m_folder);
+}
+
+void Backend::save() {
+    if (m_folder.isEmpty())
+        return;
+    QString error;
+    if (!m_log.save(m_folder, &error))
+        setError(tr("Couldn't save the transcript: %1").arg(error));
+}
+
+void Backend::writeState() const {
+    QDir().mkpath(QFileInfo(m_stateFile).absolutePath());
+    QSaveFile file(m_stateFile);
+    file.setDirectWriteFallback(false);
+    const QByteArray json = QJsonDocument(status()).toJson(QJsonDocument::Compact) + "\n";
+    if (!file.open(QIODevice::WriteOnly) || file.write(json) != json.size() || !file.commit())
+        return;
+    // The bar widget reads the file when told to.
+    static const QString shell = QStandardPaths::findExecutable("omarchy-shell");
+    if (m_notify && !shell.isEmpty() && m_stateFile == defaultStateFile())
+        startDetachedQuietly(shell, {"debrief.bar", "refresh"});
+}
+
+QJsonObject Backend::status() const {
+    return {{"running", true},
+            {"state", state()},
+            {"folder", m_folder},
+            {"started", m_log.started.isValid() ? m_log.started.toString(Qt::ISODate) : QString()},
+            {"elapsed_s", elapsed()},
+            {"screenshots", int(m_log.shots.size())},
+            {"pid", QCoreApplication::applicationPid()}};
+}
+
+QVariantList Backend::entries() const {
+    struct Row { qint64 at; int order; QVariantMap map; };
+    QList<Row> rows;
+    for (int i = 0; i < m_log.speech.size(); ++i) {
+        const Speech &s = m_log.speech[i];
+        rows.append({s.startMs, 0, QVariantMap{{"kind", "speech"},
+                                               {"time", Debrief::timecode(s.startMs)},
+                                               {"text", s.text},
+                                               {"state", s.state == Speech::Done ? "done"
+                                                         : s.state == Speech::Pending ? "pending" : "failed"},
+                                               {"error", s.error}}});
+    }
+    for (const Shot &shot : m_log.shots) {
+        const qint64 at = shot.speech >= 0 && shot.speech < m_log.speech.size() ? m_log.speech[shot.speech].startMs
+                                                                                 : shot.timeMs;
+        rows.append({at, 1, QVariantMap{{"kind", "shot"},
+                                        {"time", Debrief::timecode(shot.timeMs)},
+                                        {"number", shot.number},
+                                        {"source", shot.source},
+                                        {"image", QUrl::fromLocalFile(m_folder + "/" + shot.file).toString()}}});
+    }
+    std::stable_sort(rows.begin(), rows.end(), [](const Row &a, const Row &b) {
+        return a.at != b.at ? a.at < b.at : a.order < b.order;
+    });
+    QVariantList list;
+    for (const Row &row : rows)
+        list.append(row.map);
+    return list;
+}
+
+void Backend::openFolder() {
+    if (!m_folder.isEmpty())
+        QDesktopServices::openUrl(QUrl::fromLocalFile(m_folder));
+}
+
+void Backend::openRoot() {
+    QDir().mkpath(m_root);
+    QDesktopServices::openUrl(QUrl::fromLocalFile(m_root));
+}
+
+void Backend::reportWithClaude() {
+    if (m_folder.isEmpty() || m_state != Idle)
+        return;
+    const QString terminal = QStandardPaths::findExecutable("xdg-terminal-exec");
+    if (terminal.isEmpty()) {
+        setError(tr("xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal."));
+        return;
+    }
+    // An interactive shell, so Claude Code is found wherever the user's own
+    // shell setup puts it, and the terminal stays open after Claude exits.
+    startDetachedQuietly(terminal, {"bash", "-ic", "cd -- \"$1\" && claude \"$2\"; exec bash", "debrief",
+                                       m_folder, reportPrompt()});
+}
