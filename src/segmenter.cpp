@@ -10,7 +10,7 @@ Segmenter::Segmenter(int sampleRate)
       // 90 ms of sound starts an utterance, so a click or a cough doesn't.
       m_framesToStart(3),
       // 800 ms of quiet ends one: long enough for a breath mid-sentence,
-      // short enough that "screenshot this" is acted on soon after it is said.
+      // short enough that "screenshot" is acted on soon after it is said.
       m_framesToEnd(800 / 30),
       m_maxLength(qint64(sampleRate) * 15) {}
 

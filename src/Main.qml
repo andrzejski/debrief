@@ -98,10 +98,10 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 color: win.muted
-                text: backend.recording ? qsTr("Talk through what you're doing. Say “screenshot this” and pause for a moment to capture the screen.")
+                text: backend.recording ? qsTr("Talk through what you're doing. Say “screenshot” and pause for a moment to capture the screen.")
                     : backend.state === "finishing" ? qsTr("Transcribing the last %Ln sentences.", "", backend.pendingCount)
                     : backend.folder !== "" ? qsTr("Saved in %1").arg(backend.folder)
-                    : qsTr("Start a session, then debug out loud. Debrief records your voice, writes a transcript, and takes a screenshot whenever you say “screenshot this”.")
+                    : qsTr("Start a session, then debug out loud. Debrief records your voice, writes a transcript, and takes a screenshot whenever you say “screenshot”.")
             }
 
             Label {

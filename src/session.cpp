@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QStandardPaths>
 #include <QtEndian>
 #include <algorithm>
@@ -21,12 +22,46 @@ QString timecode(qint64 ms) {
 
 bool asksForScreenshot(const QString &text) {
     static const QRegularExpression notLetters("[^\\p{L}\\p{N}]+");
-    static const QRegularExpression screenShot("\\bscreen shot");
-    static const QRegularExpression request(
-        "\\b(screenshot (this|that|it|here|now|please)|(take|grab|get) (a |the )?screenshot)\\b");
-    QString words = " " + text.toLower().replace(notLetters, " ") + " ";
-    words.replace(screenShot, "screenshot");
-    return request.match(words).hasMatch();
+    static const QRegularExpression said("\\bscreen ?shot");
+    return said.match(text.toLower().replace(notLetters, " ")).hasMatch();
+}
+
+QString slug(const QString &words, int maxWords) {
+    static const QRegularExpression notLetters("[^\\p{L}\\p{N}]+");
+    const QStringList all = words.toLower().split(notLetters, Qt::SkipEmptyParts);
+    // A sentence is an answer that went wrong, not a name.
+    if (all.isEmpty() || all.size() > maxWords * 2)
+        return {};
+    return all.mid(0, maxWords).join('-').left(48);
+}
+
+QString describe(const QStringList &sentences) {
+    static const QRegularExpression notLetters("[^\\p{L}\\p{N}]+");
+    static const QSet<QString> dull{
+        "the", "and", "that", "this", "then", "than", "there", "here", "with", "have", "has", "had", "was", "were",
+        "are", "but", "not", "does", "doesn", "did", "didn", "don", "isn", "can", "could", "would", "should",
+        "will", "just", "like", "okay", "yeah", "yes", "well", "what", "when", "where", "why", "how", "which",
+        "for", "from", "into", "onto", "out", "its", "it's", "you", "your", "they", "them", "been", "being",
+        "about", "going", "gonna", "want", "now", "also", "some", "something", "thing", "see", "get", "got",
+        "one", "let", "take", "screenshot", "screenshots", "screen", "shot", "uhm", "hmm"};
+    QHash<QString, int> count;
+    QStringList order;
+    for (const QString &sentence : sentences) {
+        for (const QString &word : sentence.toLower().split(notLetters, Qt::SkipEmptyParts)) {
+            if (word.size() < 3 || dull.contains(word))
+                continue;
+            if (count[word]++ == 0)
+                order << word;
+        }
+    }
+    QStringList most = order;
+    std::stable_sort(most.begin(), most.end(), [&](const QString &a, const QString &b) { return count[a] > count[b]; });
+    most = most.mid(0, 3);
+    QStringList words;
+    for (const QString &word : order)
+        if (most.contains(word))
+            words << word;
+    return words.isEmpty() ? QStringLiteral("nothing-said") : slug(words.join(' '));
 }
 
 QString defaultRoot() {
@@ -118,10 +153,11 @@ QString SessionLog::context(int index, int before, int after) const {
 
 QString SessionLog::markdown() const {
     QString md;
-    md += "# Debrief session, " + started.toString("yyyy-MM-dd HH:mm") + "\n\n";
-    md += "- Audio: [audio.wav](audio.wav), " + timecode(durationMs) + (finished ? "" : " so far, still recording")
-        + "\n";
-    md += QString("- Screenshots: %1, in screenshots/\n").arg(shots.size());
+    md += "# Debrief session" + (title.isEmpty() ? QString() : ": " + title) + ", "
+        + started.toString("yyyy-MM-dd HH:mm") + "\n\n";
+    md += "- Audio: [" + audio.section('/', -1) + "](" + audio + "), beside this folder, " + timecode(durationMs)
+        + (finished ? "" : " so far, still recording") + "\n";
+    md += QString("- Screenshots: %1, in this folder\n").arg(shots.size());
     md += "- Each screenshot sits under the words it was taken during; session.json has the same links.\n\n";
     md += "## Transcript\n\n";
 
@@ -177,14 +213,14 @@ QJsonObject SessionLog::json() const {
                                        {"transcript_index", shot.speech},
                                        {"said", shot.speech >= 0 && shot.speech < speech.size() ? speech[shot.speech].text : QString()},
                                        {"context", shot.speech >= 0 ? context(shot.speech) : QString()}});
-    return {{"version", 1},
+    return {{"version", 2},
             {"app", "debrief"},
             {"started", started.toString(Qt::ISODate)},
             {"duration_ms", durationMs},
             {"finished", finished},
-            {"audio", "audio.wav"},
+            {"title", title},
+            {"audio", audio},
             {"transcript_file", "transcript.md"},
-            {"screenshots_dir", "screenshots"},
             {"transcript", transcript},
             {"screenshots", screenshots}};
 }

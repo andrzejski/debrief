@@ -11,7 +11,9 @@
 
 // A debugging session: records the microphone, transcribes what is said a
 // sentence at a time, and keeps a screenshot of the screen whenever the words
-// ask for one. Everything lands in one folder per session.
+// say "screenshot". The transcript and screenshots land in one folder per
+// session, named for when it started and what it was about, with the
+// recording beside it under the same name.
 class Backend : public QObject {
     Q_OBJECT
     Q_PROPERTY(QString state READ state NOTIFY stateChanged)
@@ -29,9 +31,9 @@ class Backend : public QObject {
 public:
     // The session takes ownership of the services. Tests pass fakes, a temp
     // root, and a temp state file.
-    Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, const QString &root,
-            const QString &stateFile, QObject *parent = nullptr);
-    // The real microphone, screen, and Superwhisper.
+    Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, Namer *namer,
+            const QString &root, const QString &stateFile, QObject *parent = nullptr);
+    // The real microphone, screen, Superwhisper, and Claude.
     explicit Backend(QObject *parent = nullptr);
     ~Backend() override;
 
@@ -97,6 +99,8 @@ private:
     void resolve(int captureId);
     void keepShot(const Capture &capture, const QString &source);
     void finishIfDone();
+    void onNamed(const QString &words);
+    QStringList said() const;
     void save();
     void writeState() const;
     QString shotName(int number, qint64 timeMs) const;
@@ -104,6 +108,7 @@ private:
     AudioSource *m_audio;
     Screenshotter *m_screenshots;
     Transcriber *m_transcriber;
+    Namer *m_namer;
     QString m_root;
     QString m_stateFile;
     QString m_notice;
@@ -119,6 +124,7 @@ private:
     qint64 m_samples = 0;
     bool m_speaking = false;
     bool m_audioStopped = true;
+    bool m_naming = false;
     bool m_notify = true;
 
     QHash<int, Capture> m_captures;

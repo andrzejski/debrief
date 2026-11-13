@@ -1,5 +1,5 @@
 // debrief — records your voice while you debug and takes a screenshot whenever
-// you say "screenshot this", tying each one to the words around it.
+// you say "screenshot", tying each one to the words around it.
 
 #include <QCoreApplication>
 #include <QGuiApplication>

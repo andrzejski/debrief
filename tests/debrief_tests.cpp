@@ -234,12 +234,24 @@ public:
     }
 };
 
+// Answers with its words, as Claude would a moment later.
+class FakeNamer : public Namer {
+public:
+    QString words = "Save button grey.";
+    QStringList asked;
+    void name(const QString &transcript) override {
+        asked << transcript;
+        QTimer::singleShot(0, this, [this] { emit named(words); });
+    }
+};
+
 struct Rig {
     QTemporaryDir dir;
     FakeAudio *audio = new FakeAudio;
     FakeScreens *screens = new FakeScreens;
     FakeTranscriber *transcriber = new FakeTranscriber;
-    Backend backend{audio, screens, transcriber, dir.filePath("sessions"), dir.filePath("run/state.json")};
+    FakeNamer *namer = new FakeNamer;
+    Backend backend{audio, screens, transcriber, namer, dir.filePath("sessions"), dir.filePath("run/state.json")};
     Rig() { backend.setNotify(false); }
 };
 
@@ -287,12 +299,29 @@ private slots:
     }
 
     void recognizesAskingForAScreenshot() {
-        for (const char *yes : {"Screenshot this.", "OK, screen shot that!", "can you take a screenshot",
-                                "SCREENSHOT THIS", "and, uh, screenshot it", "Grab the screenshot now"})
+        // The word alone is enough, however it is said or written down.
+        for (const char *yes : {"Screenshot.", "OK, screen shot that!", "can you take a screenshot",
+                                "SCREENSHOT THIS", "the button is grey, screenshot, and then", "Screen-shot",
+                                "two screenshots of this", "the screenshot feature is broken"})
             QVERIFY2(Debrief::asksForScreenshot(yes), yes);
-        for (const char *no : {"the screenshot feature is broken", "screenshots are saved here", "this screen",
-                               "screenshotting this is hard", ""})
+        for (const char *no : {"this screen", "a shot of the screen", "the screen shows nothing", ""})
             QVERIFY2(!Debrief::asksForScreenshot(no), no);
+    }
+
+    void namesAreTwoOrThreeWords() {
+        QCOMPARE(Debrief::slug("Approve flow stalls."), QString("approve-flow-stalls"));
+        QCOMPARE(Debrief::slug("  Login / Timeout\n"), QString("login-timeout"));
+        QCOMPARE(Debrief::slug("one two three four"), QString("one-two-three"));
+        // A sentence is not a name, and neither is nothing.
+        QVERIFY(Debrief::slug("I'm sorry, I can't name this session without a transcript").isEmpty());
+        QVERIFY(Debrief::slug("...").isEmpty());
+
+        // Without a name given, the words said most, in the order they came.
+        QCOMPARE(Debrief::describe({"the save button stays grey", "I click the save button", "okay screenshot this",
+                                    "the button is still grey"}),
+                 QString("save-button-grey"));
+        QCOMPARE(Debrief::describe({}), QString("nothing-said"));
+        QCOMPARE(Debrief::describe({"Um.", "okay"}), QString("nothing-said"));
     }
 
     void timecodes() {
@@ -317,18 +346,24 @@ private slots:
         log.speech = {{1000, 3000, "I open the settings page", Speech::Done, {}},
                       {4000, 6000, "the save button is grey, screenshot this", Speech::Done, {}},
                       {8000, 9000, "", Speech::Failed, "timeout"}};
-        log.shots = {{1, 6000, "screenshots/shot-01-00-00-06.png", "voice", 1},
-                     {2, 20000, "screenshots/shot-02-00-00-20.png", "manual", -1}};
+        log.shots = {{1, 6000, "shot-01-00-00-06.png", "voice", 1},
+                     {2, 20000, "shot-02-00-00-20.png", "manual", -1}};
+        log.title = "save button grey";
+        log.audio = "../2026-11-13_10-55-00_save-button-grey.wav";
 
         const QString md = log.markdown();
         const auto said = md.indexOf("the save button is grey");
-        const auto image = md.indexOf("![Screenshot 1 at 00:00:06](screenshots/shot-01-00-00-06.png)");
+        const auto image = md.indexOf("![Screenshot 1 at 00:00:06](shot-01-00-00-06.png)");
         QVERIFY(said > 0 && image > said);
         QVERIFY(md.indexOf("(not transcribed: timeout)") > image);
         // A screenshot with no words of its own comes where its time puts it.
         QVERIFY(md.indexOf("Screenshot 2 at 00:00:20") > md.indexOf("(not transcribed"));
+        QVERIFY(md.startsWith("# Debrief session: save button grey, 2026-11-13 10:55\n"));
+        QVERIFY(md.contains("(../2026-11-13_10-55-00_save-button-grey.wav)"));
 
         const QJsonObject json = log.json();
+        QCOMPARE(json.value("title").toString(), QString("save button grey"));
+        QCOMPARE(json.value("audio").toString(), QString("../2026-11-13_10-55-00_save-button-grey.wav"));
         const QJsonObject shot = json.value("screenshots").toArray().at(0).toObject();
         QCOMPARE(shot.value("transcript_index").toInt(), 1);
         QCOMPARE(shot.value("said").toString(), QString("the save button is grey, screenshot this"));
@@ -345,12 +380,14 @@ private slots:
 
     void sessionKeepsAScreenshotOnlyWhenAskedFor() {
         Rig rig;
-        rig.transcriber->words = {"the save button stays grey", "okay screenshot this"};
+        rig.transcriber->words = {"the save button stays grey", "okay there, screenshot"};
         rig.backend.start();
         QVERIFY(rig.backend.recording());
         QVERIFY(rig.audio->running);
-        const QString folder = rig.backend.folder();
-        QVERIFY(folder.startsWith(rig.dir.filePath("sessions")));
+        const QString began = rig.backend.folder();
+        QVERIFY(began.startsWith(rig.dir.filePath("sessions")));
+        // The recording is beside the folder from the start, not in it.
+        QVERIFY(QFile::exists(began + ".wav"));
         QCOMPARE(readJson(rig.dir.filePath("run/state.json")).value("state").toString(), QString("recording"));
 
         rig.audio->push(quiet(1) + tone(1.5) + quiet(1.5) + tone(1) + quiet(1.5));
@@ -361,22 +398,38 @@ private slots:
 
         rig.backend.stop();
         QCOMPARE(rig.backend.state(), QString("finishing"));
+        QSignalSpy moved(&rig.backend, &Backend::folderChanged);
         QTRY_VERIFY(rig.backend.idle());
 
+        // The folder ends with what the session was about, and so does the
+        // recording beside it.
+        const QString folder = rig.backend.folder();
+        QCOMPARE(folder, began + "_save-button-grey");
+        QCOMPARE(moved.size(), 1);
+        QCOMPARE(rig.namer->asked, QStringList{"the save button stays grey\nokay there, screenshot"});
+        QVERIFY(!QFileInfo::exists(began) && !QFileInfo::exists(began + ".wav"));
+        QCOMPARE(QDir(rig.dir.filePath("sessions")).entryList(QDir::AllEntries | QDir::NoDotAndDotDot),
+                 QStringList({QFileInfo(folder).fileName(), QFileInfo(folder).fileName() + ".wav"}));
+        QCOMPARE(readJson(rig.dir.filePath("run/state.json")).value("folder").toString(), folder);
+
         const SessionLog &log = rig.backend.log();
+        QCOMPARE(log.title, QString("save button grey"));
         QCOMPARE(log.speech.size(), 2);
         QCOMPARE(log.shots.size(), 1);
         QCOMPARE(log.shots[0].speech, 1);
         QCOMPARE(log.shots[0].source, QString("voice"));
         QVERIFY(QFile::exists(folder + "/" + log.shots[0].file));
-        QCOMPARE(QDir(folder + "/screenshots").entryList(QDir::Files).size(), 1);
+        // One folder to hand over: the transcript, its data, and the screenshot.
         // The unwanted candidate and the cut audio are gone with the work folder.
-        QVERIFY(!QFileInfo::exists(folder + "/.work"));
+        QCOMPARE(QDir(folder).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot),
+                 QStringList({"session.json", log.shots[0].file, "transcript.md"}));
 
         QVERIFY(log.finished);
         QCOMPARE(readJson(folder + "/session.json").value("screenshots").toArray().size(), 1);
         QVERIFY(QFile::exists(folder + "/transcript.md"));
-        QFile wav(folder + "/audio.wav");
+        QCOMPARE(readJson(folder + "/session.json").value("audio").toString(),
+                 "../" + QFileInfo(folder).fileName() + ".wav");
+        QFile wav(folder + ".wav");
         QVERIFY(wav.open(QIODevice::ReadOnly));
         QCOMPARE(wav.size(), 44 + qint64(6.5 * kRate) * 2);
         QCOMPARE(qFromLittleEndian<quint32>(wav.read(44).constData() + 40), quint32(6.5 * kRate) * 2);
@@ -400,6 +453,42 @@ private slots:
         QTRY_VERIFY(rig.backend.idle());
         QCOMPARE(finished.size(), 1);
         QCOMPARE(rig.backend.shotCount(), 1);
+    }
+
+    void sessionNamesItselfWhenNobodyElseDoes() {
+        Rig rig;
+        // No answer, as when Claude isn't installed or takes too long.
+        rig.namer->words.clear();
+        rig.transcriber->words = {"the invoice total is wrong", "the total ignores the invoice discount"};
+        rig.backend.start();
+        const QString began = rig.backend.folder();
+        rig.audio->push(quiet(1) + tone(1.5) + quiet(1.5) + tone(1) + quiet(1.5));
+        rig.backend.stop();
+        QTRY_VERIFY(rig.backend.idle());
+        QCOMPARE(rig.backend.folder(), began + "_invoice-total-wrong");
+        QVERIFY(QFile::exists(began + "_invoice-total-wrong.wav"));
+
+        // Nothing said: nothing to ask about.
+        Rig silent;
+        silent.backend.start();
+        silent.audio->push(quiet(2));
+        silent.backend.stop();
+        QTRY_VERIFY(silent.backend.idle());
+        QVERIFY(silent.backend.folder().endsWith("_nothing-said"));
+        QVERIFY(silent.namer->asked.isEmpty());
+    }
+
+    // Asks the real Claude, so it only runs when told to: DEBRIEF_LIVE=1 bin/test
+    void claudeNamesASession() {
+        if (!qEnvironmentVariableIsSet("DEBRIEF_LIVE"))
+            QSKIP("Set DEBRIEF_LIVE=1 to ask Claude for a name.");
+        ClaudeNamer namer;
+        QSignalSpy named(&namer, &Namer::named);
+        namer.name("the save button stays grey\nI click save and nothing happens\nscreenshot");
+        QVERIFY(named.wait(40000));
+        const QString about = Debrief::slug(named.first().first().toString());
+        qInfo() << "Claude named it" << about;
+        QVERIFY(about.count('-') >= 1 && about.count('-') <= 2);
     }
 
     void screenshotByHandBelongsToTheWordsBeingSaid() {

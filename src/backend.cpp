@@ -12,13 +12,13 @@
 #include <QUrl>
 #include <algorithm>
 
-Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, const QString &root,
-                 const QString &stateFile, QObject *parent)
-    : QObject(parent), m_audio(audio), m_screenshots(screenshots), m_transcriber(transcriber),
+Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, Namer *namer,
+                 const QString &root, const QString &stateFile, QObject *parent)
+    : QObject(parent), m_audio(audio), m_screenshots(screenshots), m_transcriber(transcriber), m_namer(namer),
       m_root(root.isEmpty() ? Debrief::defaultRoot() : root),
       m_stateFile(stateFile.isEmpty() ? defaultStateFile() : stateFile), m_segmenter(kRate) {
     for (QObject *service : {static_cast<QObject *>(audio), static_cast<QObject *>(screenshots),
-                             static_cast<QObject *>(transcriber)})
+                             static_cast<QObject *>(transcriber), static_cast<QObject *>(namer)})
         service->setParent(this);
     m_notice = m_transcriber->unavailableReason();
 
@@ -34,11 +34,12 @@ Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *tr
     });
     connect(m_screenshots, &Screenshotter::captured, this, &Backend::onCaptured);
     connect(m_transcriber, &Transcriber::transcribed, this, &Backend::onTranscribed);
+    connect(m_namer, &Namer::named, this, &Backend::onNamed);
     writeState();
 }
 
 Backend::Backend(QObject *parent)
-    : Backend(new FfmpegAudioSource, new GrimScreenshotter, new SuperwhisperTranscriber, {}, {}, parent) {}
+    : Backend(new FfmpegAudioSource, new GrimScreenshotter, new SuperwhisperTranscriber, new ClaudeNamer, {}, {}, parent) {}
 
 Backend::~Backend() {
     // The bar should not show a session that went with the app.
@@ -57,8 +58,8 @@ QString Backend::reportPrompt() {
     return QStringLiteral(
         "This folder is a Debrief debugging session. transcript.md is what I said while debugging, with each "
         "screenshot placed under the words I said when I took it; session.json has the same links "
-        "(screenshots[].transcript_index, said, and context). Read both, look at every screenshot in "
-        "screenshots/, and write bug-report.md here: a one-paragraph summary, steps to reproduce, expected and "
+        "(screenshots[].transcript_index, said, and context). Read both, look at every screenshot (the "
+        "shot-*.png files here), and write bug-report.md here: a one-paragraph summary, steps to reproduce, expected and "
         "actual behaviour, and then each issue I hit in order, with its screenshot embedded, its time code, and "
         "what I said about it. Quote me where it helps and don't invent details the session doesn't show.");
 }
@@ -109,14 +110,16 @@ void Backend::start() {
     if (m_state != Idle)
         return;
     const QDateTime now = QDateTime::currentDateTime();
+    // Named for when it started; what it was about is added once that is known.
     QString folder = m_root + "/" + now.toString("yyyy-MM-dd_HH-mm-ss");
-    for (int n = 2; QFileInfo::exists(folder); ++n)
+    for (int n = 2; QFileInfo::exists(folder) || QFileInfo::exists(folder + ".wav"); ++n)
         folder = m_root + "/" + now.toString("yyyy-MM-dd_HH-mm-ss") + QString("_%1").arg(n);
-    if (!QDir().mkpath(folder + "/screenshots") || !QDir().mkpath(folder + "/.work")) {
+    if (!QDir().mkpath(folder + "/.work")) {
         setError(tr("Couldn't create the session folder %1.").arg(folder));
         return;
     }
-    if (!m_wav.open(folder + "/audio.wav")) {
+    // The recording sits beside the folder, so the folder alone goes to Claude.
+    if (!m_wav.open(folder + ".wav")) {
         setError(tr("Couldn't write the recording: %1").arg(m_wav.errorString()));
         return;
     }
@@ -125,6 +128,8 @@ void Backend::start() {
     m_folder = folder;
     m_log = SessionLog();
     m_log.started = now;
+    m_log.audio = "../" + QFileInfo(folder).fileName() + ".wav";
+    m_naming = false;
     m_segmenter = Segmenter(kRate);
     m_buffer.clear();
     m_bufferStart = 0;
@@ -193,8 +198,8 @@ void Backend::onUtterance(const Segmenter::Utterance &utterance) {
         m_log.speech[index].error = "couldn't cut the audio";
     } else if (m_notice.isEmpty()) {
         // The screen is captured the moment the words end, which is when
-        // "screenshot this" was just said, and kept only if the words turn out
-        // to ask for it.
+        // "screenshot" was just said, and kept only if the words turn out to
+        // have it in them.
         Capture capture;
         capture.speech = index;
         capture.timeMs = speech.endMs;
@@ -287,7 +292,7 @@ void Backend::keepShot(const Capture &capture, const QString &source) {
 }
 
 QString Backend::shotName(int number, qint64 timeMs) const {
-    return QString("screenshots/shot-%1-%2.png")
+    return QString("shot-%1-%2.png")
         .arg(number, 2, 10, QChar('0'))
         .arg(Debrief::timecode(timeMs).replace(':', '-'));
 }
@@ -324,11 +329,50 @@ void Backend::onAudioStopped() {
 }
 
 void Backend::finishIfDone() {
-    if (m_state != Finishing || !m_audioStopped || pendingCount() > 0 || !m_captures.isEmpty())
+    if (m_state != Finishing || !m_audioStopped || pendingCount() > 0 || !m_captures.isEmpty() || m_naming)
         return;
+    QDir(m_folder + "/.work").removeRecursively();
+    // The last step: what the session was about, for the end of its name.
+    m_naming = true;
+    const QStringList words = said();
+    if (words.isEmpty())
+        onNamed({});
+    else
+        m_namer->name(words.join('\n'));
+}
+
+QStringList Backend::said() const {
+    QStringList words;
+    for (const Speech &speech : m_log.speech)
+        if (speech.state == Speech::Done && !speech.text.isEmpty())
+            words << speech.text;
+    return words;
+}
+
+void Backend::onNamed(const QString &words) {
+    if (!m_naming || m_state != Finishing)
+        return;
+    m_naming = false;
+    QString about = Debrief::slug(words);
+    if (about.isEmpty())
+        about = Debrief::describe(said());
+
+    QString named = m_folder + "_" + about;
+    for (int n = 2; QFileInfo::exists(named) || QFileInfo::exists(named + ".wav"); ++n)
+        named = m_folder + "_" + about + QString("-%1").arg(n);
+    // Both or neither, so the recording always carries its folder's name.
+    if (QDir().rename(m_folder, named)) {
+        if (QFile::rename(m_folder + ".wav", named + ".wav")) {
+            m_folder = named;
+            m_log.audio = "../" + QFileInfo(named).fileName() + ".wav";
+        } else {
+            QDir().rename(named, m_folder);
+        }
+    }
+    m_log.title = about.replace('-', ' ');
     m_log.finished = true;
     save();
-    QDir(m_folder + "/.work").removeRecursively();
+    emit folderChanged();
     setState(Idle);
     emit entriesChanged();
     if (m_notify)

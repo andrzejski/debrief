@@ -10,9 +10,9 @@
 // it never holds on to the terminal or pipe this one was started from.
 bool startDetachedQuietly(const QString &program, const QStringList &arguments);
 
-// The three things a session needs from the desktop, each behind an interface
-// so the tests drive a session with fakes and no microphone, screen, or
-// Superwhisper.
+// The four things a session needs from the desktop, each behind an interface
+// so the tests drive a session with fakes and no microphone, screen,
+// Superwhisper, or Claude.
 
 // 16 kHz mono 16-bit audio from the default microphone.
 class AudioSource : public QObject {
@@ -47,6 +47,17 @@ public:
     virtual void transcribe(int id, const QString &wavPath) = 0;
 signals:
     void transcribed(int id, bool ok, const QString &text, const QString &error);
+};
+
+// Two or three words for what a session was about, from what was said in it.
+class Namer : public QObject {
+    Q_OBJECT
+public:
+    using QObject::QObject;
+    virtual void name(const QString &transcript) = 0;
+signals:
+    // Empty when it couldn't say.
+    void named(const QString &words);
 };
 
 // ffmpeg reading PipeWire's default source through its PulseAudio interface.
@@ -100,4 +111,22 @@ private:
     QProcess m_reader;
     QTimer m_poll;
     QTimer m_timeout;
+};
+
+// Claude Code, asked once without tools or a saved conversation. It answers
+// in a few seconds; without it, or when it takes too long, there is no name
+// and the session falls back to its own most-said words.
+class ClaudeNamer : public Namer {
+    Q_OBJECT
+public:
+    explicit ClaudeNamer(QObject *parent = nullptr);
+    ~ClaudeNamer() override;
+    void name(const QString &transcript) override;
+
+private:
+    void finish(const QString &words);
+
+    QProcess m_process;
+    QTimer m_timeout;
+    bool m_busy = false;
 };

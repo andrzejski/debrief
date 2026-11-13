@@ -8,7 +8,8 @@
 
 // What a debugging session is on disk: the transcript, the screenshots, and
 // which words each screenshot belongs to. It writes transcript.md for people
-// and session.json for agents, so Claude can turn a folder into a bug report.
+// and session.json for agents, next to the screenshots, so the one folder can
+// be handed to Claude; the recording sits beside the folder under its name.
 struct Speech {
     enum State { Pending, Done, Failed };
     qint64 startMs = 0;
@@ -30,6 +31,8 @@ struct SessionLog {
     QDateTime started;
     qint64 durationMs = 0;
     bool finished = false;
+    QString title;                    // two or three words for what it was about, once it is finished
+    QString audio = "../audio.wav";   // the recording, relative to the session folder it sits beside
     QList<Speech> speech;
     QList<Shot> shots;
 
@@ -45,10 +48,17 @@ namespace Debrief {
 
 // HH:MM:SS from milliseconds.
 QString timecode(qint64 ms);
-// Whether the words ask for a screenshot: "screenshot this", "screen shot
-// that", "take a screenshot", in whatever case and punctuation the
-// transcription came back with.
+// Whether the word "screenshot" was said: "screenshot", "screen shot",
+// "screenshots", in whatever case and punctuation the transcription came back
+// with.
 bool asksForScreenshot(const QString &text);
+// The first few words of a description as the end of a folder name:
+// "Approve flow stalls." is "approve-flow-stalls". Empty when there are no
+// words, or so many that it isn't a name.
+QString slug(const QString &words, int maxWords = 3);
+// A name from the transcript itself, for when nothing better could be asked
+// for: the words said most, in the order they were first said.
+QString describe(const QStringList &sentences);
 // The root that sessions are saved under: ~/Documents/Debrief.
 QString defaultRoot();
 
