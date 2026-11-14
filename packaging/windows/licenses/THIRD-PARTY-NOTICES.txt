@@ -1,0 +1,28 @@
+Debrief for Windows includes the following software. Debrief itself is under
+the MIT license (Debrief-LICENSE.txt).
+
+Qt 6.12.0  (the Qt6*.dll files and the qml, platforms, imageformats,
+            iconengines, styles and multimedia folders)
+    Copyright (C) The Qt Company Ltd. and other contributors.
+    Used under the GNU Lesser General Public License, version 3
+    (Qt-LGPL-3.0.txt, which builds on GPL-3.0.txt). Qt is linked dynamically:
+    you may replace these DLLs with your own build of the same Qt version.
+    Source code: https://download.qt.io/official_releases/qt/6.12/6.12.0/
+    Qt's own third-party notices: https://doc.qt.io/qt-6/licenses-used-in-qt.html
+
+whisper.cpp 1.9.5 and ggml  (compiled into Debrief.exe)
+    Copyright (c) 2023-2026 The ggml authors. MIT license
+    (whisper.cpp-LICENSE.txt). https://github.com/ggml-org/whisper.cpp
+
+Whisper model weights  (models\ggml-base.en.bin)
+    Copyright (c) 2022 OpenAI. MIT license. Converted to ggml format by the
+    whisper.cpp project. https://github.com/openai/whisper
+
+LLVM libc++ and libunwind  (libc++.dll, libunwind.dll), and the mingw-w64
+runtime compiled into the program
+    Apache License 2.0 with LLVM exceptions; mingw-w64 runtime under its own
+    permissive terms (llvm-mingw-LICENSE.txt).
+    https://github.com/mstorsjo/llvm-mingw
+
+d3dcompiler_47.dll
+    Microsoft Corporation. Redistributed with Qt for Windows.

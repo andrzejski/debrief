@@ -25,6 +25,10 @@ Control::Control(Backend *backend, const QString &socketPath, QObject *parent)
 }
 
 QString Control::defaultSocket() {
+#ifdef Q_OS_WIN
+    // A named pipe, one per user.
+    return "debrief-control-" + qEnvironmentVariable("USERNAME", "user");
+#endif
     QString runtime = qEnvironmentVariable("XDG_RUNTIME_DIR");
     if (runtime.isEmpty())
         runtime = QDir::tempPath();
@@ -32,7 +36,8 @@ QString Control::defaultSocket() {
 }
 
 bool Control::listen() {
-    QDir().mkpath(QFileInfo(m_path).absolutePath());
+    if (QFileInfo(m_path).isAbsolute())
+        QDir().mkpath(QFileInfo(m_path).absolutePath());
     // Left behind by an app that didn't get to clean up; a live one was
     // already asked before this.
     QLocalServer::removeServer(m_path);

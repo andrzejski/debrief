@@ -21,6 +21,9 @@ ApplicationWindow {
     readonly property bool rightToLeft: Qt.application.layoutDirection === Qt.RightToLeft
     readonly property color muted: theme.colors.muted
     readonly property color red: theme.colors.red
+    // Set when the user asked to quit while recording; where Debrief stays in
+    // the notification area, closing the window alone doesn't quit it.
+    property bool quitting: false
 
     function timecode(seconds) {
         function pad(n) { return n < 10 ? "0" + n : "" + n }
@@ -175,7 +178,7 @@ ApplicationWindow {
                                 Layout.alignment: Qt.AlignTop
                                 text: row.modelData.time
                                 color: win.muted
-                                font.family: "monospace"
+                                font.family: Qt.platform.os === "windows" ? "Consolas" : "monospace"
                             }
                             Label {
                                 Layout.fillWidth: true
@@ -385,6 +388,7 @@ ApplicationWindow {
 
         // Escape or closing it keeps recording: the answer that loses nothing.
         onAccepted: {
+            win.quitting = true
             backend.stop()
             // The app quits when there's no window and the session is saved.
             win.close()

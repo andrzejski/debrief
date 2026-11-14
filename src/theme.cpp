@@ -10,10 +10,34 @@
 #include <QStandardPaths>
 #include <cmath>
 
+#ifdef Q_OS_WIN
+#include <QGuiApplication>
+#include <QStyleHints>
+#endif
+
 namespace {
 
-// Without Omarchy: a dark surface and Omarchy's fallback yellow.
+// Windows has no Omarchy theme; there the app follows the system's light or
+// dark mode instead.
+bool systemIsLight() {
+#ifdef Q_OS_WIN
+    return qGuiApp && QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light;
+#else
+    return false;
+#endif
+}
+
+// Without Omarchy: a dark surface and Omarchy's fallback yellow, or on a
+// light Windows desktop a light surface with colors dark enough to read on it.
 const QHash<QString, QColor> &fallbackColors() {
+    static const QHash<QString, QColor> light{
+        {"accent", QColor("#9a6700")},  {"background", QColor("#fafafa")}, {"foreground", QColor("#1a1a1e")},
+        {"selection", QColor("#d0d0d6")}, {"muted", QColor("#6b6b76")},    {"red", QColor("#d1242f")},
+        {"green", QColor("#1a7f37")},   {"yellow", QColor("#9a6700")},     {"orange", QColor("#bc4c00")},
+        {"blue", QColor("#0969da")},    {"magenta", QColor("#8250df")},    {"cyan", QColor("#1b7c83")},
+    };
+    if (systemIsLight())
+        return light;
     static const QHash<QString, QColor> colors{
         {"accent", QColor("#FFD60A")},  {"background", QColor("#0e0e10")}, {"foreground", QColor("#e6e6e9")},
         {"selection", QColor("#3a3a40")}, {"muted", QColor("#5c5c66")},    {"red", QColor("#f7768e")},
@@ -106,6 +130,15 @@ Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl, 
         m_events.connectToServer(events, QIODevice::ReadOnly);
     refreshRounding();
     reload();
+#ifdef Q_OS_WIN
+    // Windows 11 rounds its own controls about this much.
+    m_radius = 6;
+    if (qGuiApp)
+        connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this] {
+            reload();
+            emit changed();
+        });
+#endif
 }
 
 Theme::~Theme() {
@@ -205,7 +238,7 @@ void Theme::reload() {
             m_watcher.addPath(path);
 
     const Palette palette = readThemeColors(m_directory + "/theme/colors.toml");
-    const bool light = palette.colors.isEmpty() ? false : palette.light;
+    const bool light = palette.colors.isEmpty() ? systemIsLight() : palette.light;
     if (palette.colors != m_colors || light != m_light) {
         m_colors = palette.colors;
         m_light = light;

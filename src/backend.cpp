@@ -12,6 +12,14 @@
 #include <QUrl>
 #include <algorithm>
 
+#ifdef DEBRIEF_NATIVE
+#include "native/native_services.h"
+#endif
+#ifdef Q_OS_WIN
+#include <QTemporaryFile>
+#include <windows.h>
+#endif
+
 Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, Namer *namer,
                  const QString &root, const QString &stateFile, QObject *parent)
     : QObject(parent), m_audio(audio), m_screenshots(screenshots), m_transcriber(transcriber), m_namer(namer),
@@ -38,8 +46,14 @@ Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *tr
     writeState();
 }
 
+#ifdef DEBRIEF_NATIVE
+// Nothing beside the app: Qt for the microphone and the screen, whisper.cpp inside.
+Backend::Backend(QObject *parent)
+    : Backend(new QtAudioSource, new QtScreenshotter, new WhisperTranscriber, new ClaudeNamer, {}, {}, parent) {}
+#else
 Backend::Backend(QObject *parent)
     : Backend(new FfmpegAudioSource, new GrimScreenshotter, new SuperwhisperTranscriber, new ClaudeNamer, {}, {}, parent) {}
+#endif
 
 Backend::~Backend() {
     // The bar should not show a session that went with the app.
@@ -209,7 +223,7 @@ void Backend::onUtterance(const Segmenter::Utterance &utterance) {
         m_transcriber->transcribe(index, chunk);
     } else {
         m_log.speech[index].state = Speech::Failed;
-        m_log.speech[index].error = "Superwhisper isn't installed";
+        m_log.speech[index].error = "no transcriber";
         QFile::remove(chunk);
     }
     m_wav.updateHeader();
@@ -375,11 +389,14 @@ void Backend::onNamed(const QString &words) {
     emit folderChanged();
     setState(Idle);
     emit entriesChanged();
+    // On Windows the notification area says it, from the finished signal.
+#ifndef Q_OS_WIN
     if (m_notify)
         startDetachedQuietly("notify-send",
                             {"--app-name=Debrief", "--icon=debrief", tr("Debrief session saved"),
                              tr("%Ln screenshots, %1 of audio, in %2", "", m_log.shots.size())
                                  .arg(Debrief::timecode(m_log.durationMs), QDir::toNativeSeparators(m_folder))});
+#endif
     emit finished(m_folder);
 }
 
@@ -457,6 +474,33 @@ void Backend::openRoot() {
 void Backend::reportWithClaude() {
     if (m_folder.isEmpty() || m_state != Idle)
         return;
+#ifdef Q_OS_WIN
+    // A script rather than a command line: cmd's quoting would have to
+    // survive the prompt's punctuation. It opens a console of its own in the
+    // session folder, and the console stays after Claude exits.
+    auto literal = [](QString text) { return text.replace('%', "%%"); };
+    QTemporaryFile script(QDir::tempPath() + "/debrief-report-XXXXXX.cmd");
+    script.setAutoRemove(false);
+    const QByteArray lines = ("@echo off\r\nchcp 65001 >nul\r\ncd /d \"" + literal(QDir::toNativeSeparators(m_folder))
+                              + "\"\r\nclaude \"" + literal(reportPrompt()) + "\"\r\n")
+                                 .toUtf8();
+    if (!script.open() || script.write(lines) != lines.size()) {
+        setError(tr("Couldn't open Claude in a terminal."));
+        return;
+    }
+    script.close();
+    QProcess process;
+    process.setProgram("cmd.exe");
+    process.setArguments({"/k", QDir::toNativeSeparators(script.fileName())});
+    process.setCreateProcessArgumentsModifier([](QProcess::CreateProcessArguments *arguments) {
+        arguments->flags |= CREATE_NEW_CONSOLE;
+        arguments->flags &= ~DWORD(CREATE_NO_WINDOW);
+        arguments->startupInfo->dwFlags &= ~DWORD(STARTF_USESTDHANDLES);
+    });
+    if (!process.startDetached())
+        setError(tr("Couldn't open Claude in a terminal."));
+    return;
+#endif
     const QString terminal = QStandardPaths::findExecutable("xdg-terminal-exec");
     if (terminal.isEmpty()) {
         setError(tr("xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal."));

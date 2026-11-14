@@ -78,6 +78,16 @@ debrief skill install            # a Claude Code skill describing the session fo
 
 Commands exit 0 or 1, report errors on stderr, and take `--json`.
 
+## Windows
+
+Debrief also runs on Windows 11, with nothing else to install: the microphone
+and the screen go through Qt, whisper.cpp transcribes inside the app with a
+model file beside it, and the app sits in the notification area instead of the
+Omarchy bar. `packaging/windows/build.sh` cross-compiles it from Linux and
+packs `build-windows/Debrief-<version>-windows-x64.zip` with an installer
+script and its documentation; see
+[packaging/windows/handoff/docs/Building.md](packaging/windows/handoff/docs/Building.md).
+
 ## Building
 
 ```bash

@@ -19,6 +19,10 @@
 #include <QtEndian>
 #include <cmath>
 
+#ifdef DEBRIEF_NATIVE
+#include <cmath>
+#include "native/native_services.h"
+#endif
 #include "backend.h"
 #include "cli.h"
 #include "control.h"
@@ -69,7 +73,10 @@ QStringList placeholders(const QString &text) {
 // single quotes count. A text that isn't a literal can't be in a catalog.
 QMap<QString, bool> translatables(const QString &folder, QStringList *problems) {
     QMap<QString, bool> found;
-    for (const QFileInfo &info : QDir(folder).entryInfoList({"*.qml", "*.js", "*.cpp", "*.h"}, QDir::Files)) {
+    // The sources, and the in-process services beside them.
+    const QStringList kinds{"*.qml", "*.js", "*.cpp", "*.h"};
+    for (const QFileInfo &info : QDir(folder).entryInfoList(kinds, QDir::Files)
+                                     + QDir(folder + "/native").entryInfoList(kinds, QDir::Files)) {
         QFile file(info.filePath());
         if (!file.open(QIODevice::ReadOnly))
             continue;
@@ -661,6 +668,100 @@ private slots:
         // An untranslated counted string falls back to English, with English rules.
         QCOMPARE(translator.translate("Main", "%n files", nullptr, 21), QString("%n files"));
     }
+
+#ifdef DEBRIEF_NATIVE
+    void converterPassesSessionAudioThrough() {
+        QAudioFormat format;
+        format.setSampleRate(16000);
+        format.setChannelCount(1);
+        format.setSampleFormat(QAudioFormat::Int16);
+        AudioConverter converter(format, 16000);
+        const qint16 samples[] = {0, 1000, -1000, 32767, -32768};
+        const QByteArray pcm(reinterpret_cast<const char *>(samples), sizeof samples);
+        // In two pieces that split a sample: the odd byte waits for its other half.
+        QByteArray out = converter.convert(pcm.left(3)) + converter.convert(pcm.mid(3));
+        QCOMPARE(out.size(), pcm.size());
+        const auto *got = reinterpret_cast<const qint16 *>(out.constData());
+        for (int i = 0; i < 5; ++i)
+            QVERIFY2(qAbs(got[i] - samples[i]) <= 1, qPrintable(QString::number(got[i])));
+    }
+
+    void converterBringsAMicrophoneToSessionAudio() {
+        // What a Windows microphone usually gives: 48 kHz stereo floats.
+        QAudioFormat format;
+        format.setSampleRate(48000);
+        format.setChannelCount(2);
+        format.setSampleFormat(QAudioFormat::Float);
+        AudioConverter converter(format, 16000);
+        QByteArray second;
+        for (int i = 0; i < 48000; ++i) {
+            // A 440 Hz tone on the left, silence on the right.
+            const float frame[2] = {float(std::sin(2 * M_PI * 440 * i / 48000.0)), 0.f};
+            second.append(reinterpret_cast<const char *>(frame), sizeof frame);
+        }
+        QByteArray out;
+        for (qsizetype at = 0; at < second.size(); at += 1001)
+            out += converter.convert(second.mid(at, 1001));
+        QCOMPARE(out.size(), 16000 * 2);
+        // Still the tone: 440 cycles a second, at half the level, the two
+        // channels averaged.
+        const auto *got = reinterpret_cast<const qint16 *>(out.constData());
+        int crossings = 0, peak = 0;
+        for (int i = 1; i < 16000; ++i) {
+            crossings += (got[i - 1] < 0) != (got[i] < 0);
+            peak = qMax(peak, qAbs(int(got[i])));
+        }
+        QVERIFY2(qAbs(crossings - 880) <= 2, qPrintable(QString::number(crossings)));
+        QVERIFY2(peak > 15000 && peak < 16500, qPrintable(QString::number(peak)));
+    }
+
+    void converterRepeatsASlowMicrophone() {
+        QAudioFormat format;
+        format.setSampleRate(8000);
+        format.setChannelCount(1);
+        format.setSampleFormat(QAudioFormat::UInt8);
+        AudioConverter converter(format, 16000);
+        QCOMPARE(converter.convert(QByteArray(800, char(128))).size(), 1600 * 2);
+    }
+
+    void whisperNotesAreNotWords() {
+        QCOMPARE(WhisperTranscriber::clean(" [BLANK_AUDIO] "), QString());
+        QCOMPARE(WhisperTranscriber::clean(" Take a screenshot. (keyboard clicking)"), QString("Take a screenshot."));
+        QCOMPARE(WhisperTranscriber::clean("The button *sighs* is grey."), QString("The button is grey."));
+    }
+
+    void whisperTranscribesARecording() {
+        // Needs a model and something said: DEBRIEF_TEST_MODEL is a ggml
+        // model, DEBRIEF_TEST_SPEECH a 16 kHz mono 16-bit WAV, and
+        // DEBRIEF_TEST_WORDS a word that is said in it.
+        const QString model = qEnvironmentVariable("DEBRIEF_TEST_MODEL");
+        const QString speech = qEnvironmentVariable("DEBRIEF_TEST_SPEECH");
+        if (model.isEmpty() || speech.isEmpty())
+            QSKIP("No speech model to test with.");
+        WhisperTranscriber transcriber(model);
+        QCOMPARE(transcriber.unavailableReason(), QString());
+        QSignalSpy spy(&transcriber, &Transcriber::transcribed);
+        transcriber.transcribe(1, speech);
+        transcriber.transcribe(2, speech);
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 2, 120000);
+        for (int i = 0; i < 2; ++i) {
+            QCOMPARE(spy.at(i).at(0).toInt(), i + 1);
+            QVERIFY2(spy.at(i).at(1).toBool(), qPrintable(spy.at(i).at(3).toString()));
+            QVERIFY2(spy.at(i).at(2).toString().contains(qEnvironmentVariable("DEBRIEF_TEST_WORDS"), Qt::CaseInsensitive),
+                     qPrintable(spy.at(i).at(2).toString()));
+        }
+    }
+
+    void whisperWithoutAModelSaysSo() {
+        WhisperTranscriber transcriber(QDir::tempPath() + "/no-such-model.bin");
+        QSignalSpy spy(&transcriber, &Transcriber::transcribed);
+        transcriber.transcribe(7, QDir::tempPath() + "/no-such.wav");
+        QTRY_COMPARE(spy.size(), 1);
+        QCOMPARE(spy.at(0).at(0).toInt(), 7);
+        QVERIFY(!spy.at(0).at(1).toBool());
+        QVERIFY(spy.at(0).at(3).toString().contains("speech model"));
+    }
+#endif
 
     void englishCatalogListsEveryString() {
         // en.json is what translators work from: every text the sources
