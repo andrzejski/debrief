@@ -1,0 +1,41 @@
+# Maintainer: Andrew Kalinowski <andrew.kalinowski.91@gmail.com>
+
+pkgname=debrief
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Debug out loud: a transcript with screenshots you ask for by voice'
+arch=('x86_64' 'aarch64')
+url='https://github.com/andrzejski/debrief'
+license=('MIT')
+options=('!debug')
+depends=(
+  'ffmpeg'
+  'grim'
+  'hicolor-icon-theme'
+  'qt6-base'
+  'qt6-declarative'
+  'qt6-svg'
+  'qt6-wayland'
+)
+makedepends=(
+  'cmake'
+  'gcc'
+  'make'
+)
+optdepends=(
+  'superwhisper: transcripts, and screenshots by voice'
+  'claude-code: name sessions and write the bug report'
+)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# The tag's tarball is made by GitHub after this file is committed.
+sha256sums=('SKIP')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  ./bin/build
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  DESTDIR="$pkgdir" cmake --install build --prefix /usr
+}

@@ -1,0 +1,58 @@
+name: Release
+
+# Builds the Linux package for a version tag and attaches it to that tag's
+# release. The Windows zip is cross-compiled on a machine that has the Windows
+# toolchain and attached by hand; see docs/releasing.md.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to build the Linux package for, e.g. v0.1.0
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  linux-package:
+    name: Linux package
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Install git for the checkout
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Check the tag is the package's version
+        run: |
+          source packaging/arch/PKGBUILD
+          [[ "$TAG" == "v$pkgver" ]] || { echo "Tag $TAG, but packaging/arch/PKGBUILD says $pkgver" >&2; exit 1; }
+
+      - name: Install what the package needs
+        run: |
+          source packaging/arch/PKGBUILD
+          deps=("${depends[@]}" "${makedepends[@]}")
+          pacman -S --noconfirm --needed base-devel github-cli "${deps[@]%%[<>=]*}"
+
+      - name: Build the package
+        # makepkg refuses to run as root.
+        run: |
+          useradd -m builder
+          chown -R builder packaging/arch
+          su builder -c 'cd packaging/arch && PKGEXT=.pkg.tar.zst makepkg --nodeps'
+
+      - name: Attach it to the release
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Debrief ${TAG#v}" --generate-notes
+          gh release upload "$TAG" packaging/arch/debrief-*.pkg.tar.zst --clobber
