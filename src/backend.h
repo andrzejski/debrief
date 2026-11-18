@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QHash>
+#include <QElapsedTimer>
 #include <QJsonObject>
 #include <QObject>
 #include <QVariantList>
@@ -25,6 +26,7 @@ class Backend : public QObject {
     Q_PROPERTY(QVariantList entries READ entries NOTIFY entriesChanged)
     Q_PROPERTY(int shotCount READ shotCount NOTIFY entriesChanged)
     Q_PROPERTY(int pendingCount READ pendingCount NOTIFY entriesChanged)
+    Q_PROPERTY(bool naming READ naming NOTIFY entriesChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QString notice READ notice CONSTANT)
 
@@ -46,6 +48,7 @@ public:
     QVariantList entries() const;
     int shotCount() const { return m_log.shots.size(); }
     int pendingCount() const;
+    bool naming() const { return m_naming; }
     QString error() const { return m_error; }
     QString notice() const { return m_notice; }
     const SessionLog &log() const { return m_log; }
@@ -125,6 +128,7 @@ private:
     bool m_speaking = false;
     bool m_audioStopped = true;
     bool m_naming = false;
+    QElapsedTimer m_finishTimer;
     bool m_notify = true;
 
     QHash<int, Capture> m_captures;

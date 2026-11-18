@@ -29,9 +29,10 @@ session.json writers, the window) is shared and unchanged.
 - The Windows executable is cross-compiled; its import table and those of
   every bundled DLL are checked at packaging time, so nothing it needs is
   missing from the folder.
-- **Not tested: running on Windows.** The tray icon, WASAPI recording, GDI
-  screen capture, the named pipe, and the installer script have been compiled
-  or reviewed but not executed on a Windows machine.
+- **0.1.1 Windows validation:** 35 tests passed, including native microphone
+  stop/restart, real speech transcription, named-pipe control, and automated
+  UI behavior. Live Claude naming was not invoked; naming regression tests
+  use a local subprocess fixture. See `windows-stop-fix.md`.
 
 ## Rebuilding (from Linux)
 

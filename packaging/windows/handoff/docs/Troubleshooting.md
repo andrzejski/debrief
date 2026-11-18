@@ -4,11 +4,7 @@
 `%LOCALAPPDATA%\debrief\debrief.log` (paste that into Explorer's address bar).
 When reporting a problem, send that file.
 
-**Heads-up on this build.** Version 0.1.0 for Windows was cross-compiled on
-Linux and its automated tests ran there (including real transcription with the
-shipped model). It had not been run on a Windows machine when it was packaged,
-so the first run is the first real test. If something below doesn't cover what
-you see, the log is the thing to send back.
+**Windows 0.1.1 update.** Built and tested natively on Windows. The test run passed 35 checks, including microphone stop/restart, speech transcription, and UI behavior; two Linux-only tests and the opt-in live Claude test were skipped. See `windows-stop-fix.md` for changes and diagnosis limits.
 
 ## Installing
 

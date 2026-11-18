@@ -119,13 +119,14 @@ private:
 class ClaudeNamer : public Namer {
     Q_OBJECT
 public:
-    explicit ClaudeNamer(QObject *parent = nullptr);
+    explicit ClaudeNamer(QObject *parent = nullptr, const QString &program = {});
     ~ClaudeNamer() override;
     void name(const QString &transcript) override;
 
 private:
     void finish(const QString &words);
 
+    QString m_program;
     QProcess m_process;
     QTimer m_timeout;
     bool m_busy = false;

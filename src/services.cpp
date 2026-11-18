@@ -202,10 +202,13 @@ void SuperwhisperTranscriber::finish(bool ok, const QString &text, const QString
 
 // ---- ClaudeNamer ------------------------------------------------------------
 
-ClaudeNamer::ClaudeNamer(QObject *parent) : Namer(parent) {
+ClaudeNamer::ClaudeNamer(QObject *parent, const QString &program) : Namer(parent), m_program(program) {
     m_timeout.setSingleShot(true);
-    m_timeout.setInterval(30000);
+    // A cosmetic title must not hold a completed recording for half a minute.
+    // Fall back to the local title when Claude is slow or unavailable.
+    m_timeout.setInterval(2000);
     connect(&m_timeout, &QTimer::timeout, this, [this] {
+        qInfo("Session naming exceeded 2000 ms; using local title");
         m_process.kill();
         finish({});
     });
@@ -228,8 +231,8 @@ ClaudeNamer::~ClaudeNamer() {
 }
 
 void ClaudeNamer::name(const QString &transcript) {
-    const QString claude = QStandardPaths::findExecutable("claude");
-    if (claude.isEmpty() || m_busy) {
+    const QString claude = m_program.isEmpty() ? QStandardPaths::findExecutable("claude") : m_program;
+    if (claude.isEmpty() || m_busy || m_process.state() != QProcess::NotRunning) {
         // Asynchronously, like an answer.
         QTimer::singleShot(0, this, [this] { emit named({}); });
         return;

@@ -73,7 +73,6 @@ if(WIN32)
   # gathers what it needs to run into a folder and a zip.
   target_sources(debrief PRIVATE packaging/windows/debrief.rc)
   set_target_properties(debrief PROPERTIES WIN32_EXECUTABLE ON OUTPUT_NAME Debrief)
-  return()
 endif()
 
 # The tests load the real Main.qml, so they carry the resources too.
@@ -81,8 +80,15 @@ find_package(Qt6 REQUIRED COMPONENTS Test)
 enable_testing()
 add_executable(debrief_tests tests/debrief_tests.cpp src/resources.qrc)
 target_link_libraries(debrief_tests PRIVATE debrief_core Qt6::Test)
+add_executable(debrief_namer_stub tests/namer_stub.cpp)
+target_link_libraries(debrief_namer_stub PRIVATE Qt6::Core)
+add_dependencies(debrief_tests debrief_namer_stub)
 add_test(NAME debrief_tests COMMAND debrief_tests)
 set_tests_properties(debrief_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+
+if(WIN32)
+  return()
+endif()
 
 # `cmake --install build --prefix ~/.local` puts the app in the launcher
 # before it is packaged; a package installs the same files under /usr.

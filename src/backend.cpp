@@ -163,12 +163,16 @@ void Backend::start() {
 void Backend::stop() {
     if (m_state != Recording)
         return;
+    m_finishTimer.start();
+    qInfo("Session stop requested; pending transcripts: %d", pendingCount());
     setState(Finishing);
     m_audio->stop();
 }
 
 void Backend::onAudio(const QByteArray &pcm) {
-    if (m_state != Recording)
+    // stop() changes state before the audio source drains its final buffer.
+    // Keep that tail until stopped(), but reject any late audio afterwards.
+    if (m_state != Recording && !(m_state == Finishing && !m_audioStopped))
         return;
     if (!m_wav.append(pcm))
         setError(tr("Couldn't write the recording: %1").arg(m_wav.errorString()));
@@ -331,6 +335,7 @@ void Backend::onAudioStopped() {
     if (m_state != Finishing)
         return;
     m_audioStopped = true;
+    qInfo("Audio stopped after %lld ms", m_finishTimer.isValid() ? m_finishTimer.elapsed() : -1);
     if (const auto last = m_segmenter.flush())
         onUtterance(*last);
     if (m_speaking) {
@@ -348,6 +353,9 @@ void Backend::finishIfDone() {
     QDir(m_folder + "/.work").removeRecursively();
     // The last step: what the session was about, for the end of its name.
     m_naming = true;
+    qInfo("Transcription/captures complete after %lld ms; naming session",
+          m_finishTimer.isValid() ? m_finishTimer.elapsed() : -1);
+    emit entriesChanged();
     const QStringList words = said();
     if (words.isEmpty())
         onNamed({});
@@ -397,6 +405,7 @@ void Backend::onNamed(const QString &words) {
                              tr("%Ln screenshots, %1 of audio, in %2", "", m_log.shots.size())
                                  .arg(Debrief::timecode(m_log.durationMs), QDir::toNativeSeparators(m_folder))});
 #endif
+    qInfo("Session saved after %lld ms", m_finishTimer.isValid() ? m_finishTimer.elapsed() : -1);
     emit finished(m_folder);
 }
 

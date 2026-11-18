@@ -80,7 +80,7 @@ ApplicationWindow {
                 Label {
                     objectName: "status"
                     text: backend.recording ? qsTr("Recording %1").arg(win.timecode(backend.elapsed))
-                        : backend.state === "finishing" ? qsTr("Finishing the transcript…")
+                        : backend.state === "finishing" ? qsTr("Saving session…")
                         : qsTr("Ready")
                     font.pixelSize: 22
                     font.bold: true
@@ -102,7 +102,9 @@ ApplicationWindow {
                 wrapMode: Text.Wrap
                 color: win.muted
                 text: backend.recording ? qsTr("Talk through what you're doing. Say “screenshot” and pause for a moment to capture the screen.")
-                    : backend.state === "finishing" ? qsTr("Transcribing the last %Ln sentences.", "", backend.pendingCount)
+                    : backend.state === "finishing" ? (backend.naming ? qsTr("Naming the session…")
+                        : backend.pendingCount > 0 ? qsTr("Transcribing the last %Ln sentences.", "", backend.pendingCount)
+                        : qsTr("Saving audio and screenshots…"))
                     : backend.folder !== "" ? qsTr("Saved in %1").arg(backend.folder)
                     : qsTr("Start a session, then debug out loud. Debrief records your voice, writes a transcript, and takes a screenshot whenever you say “screenshot”.")
             }

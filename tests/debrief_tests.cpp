@@ -9,6 +9,7 @@
 #include <QQuickItem>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QStyleHints>
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -194,9 +195,12 @@ QList<Segmenter::Utterance> segment(Segmenter &segmenter, const QByteArray &pcm)
 class FakeAudio : public AudioSource {
 public:
     bool running = false;
+    QByteArray tail;
     void start() override { running = true; }
     void stop() override {
         running = false;
+        if (!tail.isEmpty())
+            emit audio(tail);
         QTimer::singleShot(0, this, [this] { emit stopped(); });
     }
     void push(const QByteArray &pcm) {
@@ -462,6 +466,73 @@ private slots:
         QCOMPARE(rig.backend.shotCount(), 1);
     }
 
+    void stoppingPreservesBufferedAudio() {
+        Rig rig;
+        rig.backend.start();
+        rig.audio->push(quiet(1));
+        rig.audio->tail = tone(0.5);
+        rig.backend.stop();
+        QTRY_VERIFY(rig.backend.idle());
+        QCOMPARE(rig.backend.log().durationMs, qint64(1500));
+        QFile wav(rig.backend.folder() + ".wav");
+        QVERIFY(wav.open(QIODevice::ReadOnly));
+        const QByteArray bytes = wav.readAll();
+        QCOMPARE(bytes.mid(44), quiet(1) + rig.audio->tail);
+        // A late driver signal must not append to a completed session.
+        rig.audio->push(tone(1));
+        QCOMPARE(rig.backend.log().durationMs, qint64(1500));
+    }
+
+    void slowNamingFallsBackWithoutHoldingSession() {
+        const QString stub = QCoreApplication::applicationDirPath() + "/debrief_namer_stub"
+#ifdef Q_OS_WIN
+            ".exe"
+#endif
+            ;
+        QVERIFY(QFile::exists(stub));
+        qputenv("DEBRIEF_STUB_NAMER_MODE", "slow");
+        QTemporaryDir dir;
+        auto *audio = new FakeAudio;
+        auto *transcriber = new FakeTranscriber;
+        transcriber->words = {"the invoice total is wrong"};
+        Backend backend(audio, new FakeScreens, transcriber, new ClaudeNamer(nullptr, stub),
+                        dir.filePath("sessions"), dir.filePath("state.json"));
+        backend.setNotify(false);
+        backend.start();
+        audio->push(quiet(0.5) + tone(1));
+        QElapsedTimer timer;
+        timer.start();
+        backend.stop();
+        QTRY_VERIFY(backend.naming());
+        // The event loop stays alive while the optional title is pending.
+        bool ticked = false;
+        QTimer::singleShot(20, &backend, [&] { ticked = true; });
+        QTRY_VERIFY(ticked);
+        QTRY_VERIFY_WITH_TIMEOUT(backend.idle(), 4000);
+        QVERIFY(timer.elapsed() < 4000);
+        QVERIFY(backend.folder().endsWith("_invoice-total-wrong"));
+        QVERIFY(readJson(backend.folder() + "/session.json").value("finished").toBool());
+        qunsetenv("DEBRIEF_STUB_NAMER_MODE");
+    }
+
+    void quickNamingStillWorksAndNamerCanBeReused() {
+        const QString stub = QCoreApplication::applicationDirPath() + "/debrief_namer_stub"
+#ifdef Q_OS_WIN
+            ".exe"
+#endif
+            ;
+        qputenv("DEBRIEF_STUB_NAMER_MODE", "quick");
+        ClaudeNamer namer(nullptr, stub);
+        QSignalSpy named(&namer, &Namer::named);
+        namer.name("synthetic test transcript");
+        QTRY_COMPARE_WITH_TIMEOUT(named.size(), 1, 4000);
+        QCOMPARE(named.at(0).at(0).toString(), QString("quick test title"));
+        namer.name("second synthetic transcript");
+        QTRY_COMPARE_WITH_TIMEOUT(named.size(), 2, 4000);
+        QCOMPARE(named.at(1).at(0).toString(), QString("quick test title"));
+        qunsetenv("DEBRIEF_STUB_NAMER_MODE");
+    }
+
     void sessionNamesItselfWhenNobodyElseDoes() {
         Rig rig;
         // No answer, as when Claude isn't installed or takes too long.
@@ -556,10 +627,17 @@ private slots:
     void themeFallsBack() {
         QTemporaryDir dir;
         Theme theme(dir.path());
+#ifdef Q_OS_WIN
+        const bool light = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light;
+        QCOMPARE(theme.light(), light);
+        QCOMPARE(theme.accent(), QColor(light ? "#9a6700" : "#FFD60A"));
+        QCOMPARE(theme.radius(), 6);
+#else
         QCOMPARE(theme.accent(), QColor("#FFD60A"));
         QCOMPARE(theme.accentForeground(), QColor("black"));
         QVERIFY(!theme.light());
         QCOMPARE(theme.radius(), 0);
+#endif
     }
 
     void themeReadsThePalette() {
@@ -582,6 +660,9 @@ private slots:
     }
 
     void themeAsksHyprlandAgainOnlyWhenItReloads() {
+#ifdef Q_OS_WIN
+        QSKIP("Hyprland uses a Linux shell fixture.");
+#endif
         // The fake Hyprland lives outside the theme directory, whose changes
         // the Theme also follows.
         QTemporaryDir dir, hypr;
@@ -611,6 +692,9 @@ private slots:
     }
 
     void themeReachesHyprlandOnceItListens() {
+#ifdef Q_OS_WIN
+        QSKIP("Hyprland uses a Linux shell fixture.");
+#endif
         QTemporaryDir dir, hypr;
         const QString command = fakeHyprctl(hypr.path());
         QVERIFY(write(hypr.filePath("response.json"), "{\"int\":4}"));
@@ -722,6 +806,24 @@ private slots:
         format.setSampleFormat(QAudioFormat::UInt8);
         AudioConverter converter(format, 16000);
         QCOMPARE(converter.convert(QByteArray(800, char(128))).size(), 1600 * 2);
+    }
+
+    void nativeMicrophoneStopsPromptly() {
+        if (!qEnvironmentVariableIsSet("DEBRIEF_TEST_MICROPHONE"))
+            QSKIP("Set DEBRIEF_TEST_MICROPHONE=1 for the Windows microphone smoke test.");
+        QtAudioSource audio;
+        QSignalSpy failures(&audio, &AudioSource::failed);
+        QSignalSpy stopped(&audio, &AudioSource::stopped);
+        for (int cycle = 0; cycle < 2; ++cycle) {
+            audio.start();
+            QTest::qWait(300);
+            QVERIFY(failures.isEmpty());
+            QElapsedTimer timer;
+            timer.start();
+            audio.stop();
+            QCOMPARE(stopped.size(), cycle + 1);
+            QVERIFY2(timer.elapsed() < 2000, "Microphone shutdown blocked for more than two seconds");
+        }
     }
 
     void whisperNotesAreNotWords() {
