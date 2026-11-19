@@ -13,7 +13,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$version = '0.1.1'
+$version = '1.0.0'
 $source = Join-Path $PSScriptRoot 'app'
 $target = Join-Path $env:LOCALAPPDATA 'Programs\Debrief'
 $exe = Join-Path $target 'Debrief.exe'

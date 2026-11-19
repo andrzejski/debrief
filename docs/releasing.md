@@ -11,10 +11,12 @@ One version, one GitHub release, one download per edition:
 
 ## Steps
 
-1. Set the version in four places, and commit: `setApplicationVersion` in
+1. Set the version in five places, and commit: `setApplicationVersion` in
    `src/main.cpp` (twice), `DEBRIEF_VERSION` in `CMakeLists.txt` (what the
-   macOS app shows), `pkgver` in `packaging/arch/PKGBUILD`, and the version at
-   the top of `packaging/windows/handoff/README.txt`.
+   macOS app shows), `pkgver` in `packaging/arch/PKGBUILD`, the version at
+   the top of `packaging/windows/handoff/README.txt`, and `$version` in
+   `packaging/windows/handoff/Install.ps1` (what Windows lists under
+   Installed apps).
 2. Build the Windows zip: `packaging/windows/build.sh` (see
    [Building.md](../packaging/windows/handoff/docs/Building.md)).
 3. Push, then create the release with the Windows zip. Creating it also creates
