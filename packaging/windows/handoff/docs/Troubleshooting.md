@@ -38,7 +38,7 @@ When reporting a problem, send that file.
 | Screenshots are black or miss a window | Some protected content (DRM video, certain banking or password windows) can't be captured by any app. |
 | A second monitor is misplaced in the screenshot | Mixed display scaling can shift where monitors are placed in the combined image. Each monitor's content is still complete. Please report it with your display layout. |
 
-## Bug report with Claude
+## Report with Claude
 
 | What you see | What to do |
 |---|---|

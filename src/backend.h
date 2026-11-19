@@ -68,6 +68,10 @@ public:
     QJsonObject status() const;
     static QString defaultStateFile();
     static QString reportPrompt();
+    // The Claude Code skill and the report page it starts from, copied out of
+    // the program into a skills folder.
+    static QString defaultSkillFolder();
+    static bool installSkill(const QString &folder = defaultSkillFolder());
 
 signals:
     void stateChanged();

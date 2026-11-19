@@ -613,6 +613,32 @@ private slots:
         QTRY_VERIFY(rig.backend.idle());
     }
 
+    void reportPromptAsksForBothReports() {
+        const QString prompt = Backend::reportPrompt();
+        QVERIFY(prompt.contains("bug-report.md"));
+        QVERIFY(prompt.contains("bug-report.html"));
+        QVERIFY(prompt.contains("crops"));
+        // It rides inside a quoted argument in a .cmd script on Windows.
+        QVERIFY(!prompt.contains('"'));
+        QVERIFY(!prompt.contains('\n'));
+    }
+
+    void skillInstallsWithItsReportPage() {
+        QTemporaryDir dir;
+        const QString folder = dir.filePath("skills/debrief");
+        QVERIFY(Backend::installSkill(folder));
+        QFile skill(folder + "/SKILL.md");
+        QVERIFY(skill.open(QIODevice::ReadOnly));
+        const QByteArray text = skill.readAll();
+        QVERIFY(text.startsWith("---\nname: debrief\n"));
+        QVERIFY(text.contains("report-template.html"));
+        QFile page(folder + "/report-template.html");
+        QVERIFY(page.open(QIODevice::ReadOnly));
+        QVERIFY(page.readAll().contains("id=\"scorecard\""));
+        // A second install replaces what is there.
+        QVERIFY(Backend::installSkill(folder));
+    }
+
     void barWidgetIsAValidPlugin() {
         const QString folder = QFINDTESTDATA("../share/omarchy-plugin/debrief-bar/manifest.json");
         const QJsonObject manifest = readJson(folder);

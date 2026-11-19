@@ -91,13 +91,41 @@ QString Backend::defaultStateFile() {
 }
 
 QString Backend::reportPrompt() {
+    // One line with no double quotes: on Windows it travels inside a quoted
+    // argument in a .cmd script. The skill has the detail; this says enough
+    // to get the same report where the skill didn't load.
     return QStringLiteral(
-        "This folder is a Debrief debugging session. transcript.md is what I said while debugging, with each "
-        "screenshot placed under the words I said when I took it; session.json has the same links "
-        "(screenshots[].transcript_index, said, and context). Read both, look at every screenshot (the "
-        "shot-*.png files here), and write bug-report.md here: a one-paragraph summary, steps to reproduce, expected and "
-        "actual behaviour, and then each issue I hit in order, with its screenshot embedded, its time code, and "
-        "what I said about it. Quote me where it helps and don't invent details the session doesn't show.");
+        "This folder is a Debrief session. transcript.md is what I said, with each screenshot placed under the "
+        "words I said when I took it; session.json has the same links (screenshots[].transcript_index, said, and "
+        "context). Read both and look at every screenshot (the shot-*.png files here). Then write two reports "
+        "here, following the debrief skill. First bug-report.md: a one-paragraph summary, steps to reproduce, "
+        "expected and actual behaviour, and then each thing I raised in order, with its screenshot embedded, its "
+        "time code, and what I said about it. Second bug-report.html: a self-contained page with the same feedback "
+        "regrouped by the part of the product it is about (each screen, feature, or document I reviewed), a "
+        "scorecard at the top with my verdict on each, and under every entry my quote, its time code, and crops "
+        "of just the part of the screenshot that entry is about, saved in a crops folder and linked to the full "
+        "screenshot. Start the page from report-template.html in the skill folder (~/.claude/skills/debrief) if "
+        "it is there. Mark what worked well as well as what is broken, say where the transcript is garbled and "
+        "how you read it, quote me where it helps, and don't invent details the session doesn't show.");
+}
+
+QString Backend::defaultSkillFolder() {
+    return QDir::homePath() + "/.claude/skills/debrief";
+}
+
+bool Backend::installSkill(const QString &folder) {
+    if (!QDir().mkpath(folder))
+        return false;
+    for (const char *name : {"SKILL.md", "report-template.html"}) {
+        QFile source(QStringLiteral(":/skill/") + name);
+        if (!source.open(QIODevice::ReadOnly))
+            return false;
+        const QByteArray contents = source.readAll();
+        QFile target(folder + "/" + name);
+        if (!target.open(QIODevice::WriteOnly | QIODevice::Truncate) || target.write(contents) != contents.size())
+            return false;
+    }
+    return true;
 }
 
 QString Backend::state() const {
@@ -505,6 +533,10 @@ void Backend::openRoot() {
 void Backend::reportWithClaude() {
     if (m_folder.isEmpty() || m_state != Idle)
         return;
+    // The skill says how the report is laid out and carries the page it
+    // starts from, so it goes in with the app's own copy each time. Without
+    // it the prompt still asks for the same report.
+    installSkill();
 #ifdef Q_OS_WIN
     // A script rather than a command line: cmd's quoting would have to
     // survive the prompt's punctuation. It opens a console of its own in the

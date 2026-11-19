@@ -14,12 +14,17 @@
    as you said it. All monitors are captured into one image.
 4. **Stop**: Space, **Stop session**, or the icon's menu. Debrief finishes the
    last sentences, then names the session after what it was about.
-5. **Bug report**: press B (**Bug report with Claude**). A terminal opens in the
+5. **Report**: press B (**Report with Claude**). A terminal opens in the
    session folder and starts Claude Code with a prompt that reads the transcript,
-   looks at every screenshot, and writes `bug-report.md`. This needs
+   looks at every screenshot, and writes `bug-report.md` and `bug-report.html`.
+   The page groups the feedback by the part of the product it is about and shows
+   crops of the screenshots, kept in `crops`. This needs
    [Claude Code](https://claude.com/claude-code) installed; without it,
    everything else still works and you can drag the session folder into any
    Claude conversation yourself.
+   Cutting the crops needs ImageMagick (`winget install ImageMagick.ImageMagick`)
+   or Python with Pillow; without either, the page shows the same regions by
+   framing the full screenshots instead.
 
 ## What a session is
 
@@ -48,7 +53,7 @@ ordinary files: move, zip, or delete them as you like.
 | Space | Start or stop a session             |
 | S     | Take a screenshot now               |
 | O     | Open the session folder             |
-| B     | Write a bug report with Claude      |
+| B     | Write a report with Claude          |
 | ?     | Show or hide the shortcuts          |
 | Q     | Quit (asks first while recording)   |
 
@@ -84,8 +89,8 @@ session to a hotkey (PowerToys Keyboard Manager, AutoHotkey, a Stream Deck):
 "%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" stop
 "%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" shot      & rem screenshot now
 "%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" status --json
-"%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" prompt    & rem the bug-report prompt the B button uses
-"%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" skill install   & rem a Claude Code skill describing the session format
+"%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" prompt    & rem the report prompt the B button uses
+"%LOCALAPPDATA%\Programs\Debrief\Debrief.exe" skill install   & rem the Claude Code skill for the session format and the report; B installs it too
 ```
 
 Commands exit 0 or 1. Debrief is a windowed program, so a console doesn't wait

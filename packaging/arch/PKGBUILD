@@ -24,7 +24,8 @@ makedepends=(
 )
 optdepends=(
   'superwhisper: transcripts, and screenshots by voice'
-  'claude-code: name sessions and write the bug report'
+  'claude-code: name sessions and write the report'
+  'imagemagick: cut the screenshot crops in the report'
 )
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 # The tag's tarball is made by GitHub after this file is committed.

@@ -7,7 +7,6 @@
     "one": "%Ln skærmbillede, %1 lyd, i %2",
     "other": "%Ln skærmbilleder, %1 lyd, i %2"
   },
-  "Bug report with Claude": "Fejlrapport med Claude",
   "Couldn't capture the screen. %1": "Kunne ikke tage et billede af skærmen. %1",
   "Couldn't create the session folder %1.": "Kunne ikke oprette sessionsmappen %1.",
   "Couldn't load the speech model %1.": "Kunne ikke indlæse talemodellen %1.",
@@ -43,6 +42,7 @@
   "Quit": "Afslut",
   "Ready": "Klar",
   "Recording %1": "Optager %1",
+  "Report with Claude": "Rapport med Claude",
   "Saved in %1": "Gemt i %1",
   "Saving audio and screenshots…": "Gemmer lyd og skærmbilleder…",
   "Saving session…": "Gemmer session…",
@@ -74,7 +74,7 @@
   },
   "Transcribing…": "Udskriver…",
   "What has been recorded is kept, and Debrief quits once the transcript is finished.": "Det optagne bevares, og Debrief afslutter, når udskriften er færdig.",
-  "Write a bug report with Claude": "Skriv en fejlrapport med Claude",
+  "Write a report with Claude": "Skriv en rapport med Claude",
   "ffmpeg isn't installed, so nothing can be recorded.": "ffmpeg er ikke installeret, så intet kan optages.",
   "grim isn't installed, so the screen can't be captured.": "grim er ikke installeret, så skærmen kan ikke fanges.",
   "xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal.": "xdg-terminal-exec er ikke installeret, så Claude kan ikke åbnes i en terminal."

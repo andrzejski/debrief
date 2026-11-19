@@ -43,7 +43,7 @@ const char *usage =
     "  toggle               Start or stop\n"
     "  shot                 Take a screenshot in the running session now\n"
     "  status [--json]      Whether a session is recording\n"
-    "  prompt               Print the prompt that asks Claude for a bug report\n"
+    "  prompt               Print the prompt that asks Claude for the report\n"
     "  bar install|remove   Add or remove the Omarchy bar widget\n"
     "  skill install        Install the agent skill in ~/.claude/skills/debrief\n"
     "\n"
@@ -156,16 +156,9 @@ int bar(const QString &action) {
 }
 
 int skill() {
-    const QString folder = QDir::homePath() + "/.claude/skills/debrief";
-    QFile source(":/skill/SKILL.md");
-    if (!QDir().mkpath(folder) || !source.open(QIODevice::ReadOnly)) {
+    const QString folder = Backend::defaultSkillFolder();
+    if (!Backend::installSkill(folder)) {
         err() << "Couldn't install the skill in " << folder << ".\n";
-        return 1;
-    }
-    QFile target(folder + "/SKILL.md");
-    const QByteArray contents = source.readAll();
-    if (!target.open(QIODevice::WriteOnly) || target.write(contents) != contents.size()) {
-        err() << "Couldn't write " << target.fileName() << ".\n";
         return 1;
     }
     out() << "Installed the Debrief skill in " << folder << ".\n";

@@ -5,7 +5,7 @@
 Debug out loud. Debrief records your voice while you work, transcribes it a
 sentence at a time, and takes a screenshot of the whole screen whenever you say
 **"screenshot"**. Each screenshot is tied to the words you said around it,
-so the session folder reads as a story Claude can turn into a bug report.
+so the session folder reads as a story Claude can turn into a report.
 
 ## Get it
 
@@ -31,9 +31,12 @@ Omarchy desktop already has: ffmpeg, grim, Superwhisper, and the Omarchy bar.
    word was in what you said.
 3. Stop the session. Debrief finishes transcribing the last sentences, then
    names the session after what it was about.
-4. Press B (**Bug report with Claude**) to open Claude Code in the session
+4. Press B (**Report with Claude**) to open Claude Code in the session
    folder with a prompt that reads the transcript, looks at every screenshot,
-   and writes `bug-report.md`.
+   and writes two reports: `bug-report.md`, everything in the order you said
+   it, and `bug-report.html`, the same feedback grouped by the part of the
+   product it is about, each entry with crops of just the relevant part of
+   the screenshot (kept in `crops/`).
 
 Each session is one folder under `Documents/Debrief/`, with its recording
 beside it, so the folder alone can be dragged into Claude:
@@ -61,7 +64,7 @@ reads the same on the other.
 | Space | Start or stop a session         |
 | S     | Take a screenshot now           |
 | O     | Open the session folder         |
-| B     | Write a bug report with Claude  |
+| B     | Write a report with Claude      |
 | ?     | Show or hide the shortcuts      |
 | Q     | Quit (asks first while recording) |
 

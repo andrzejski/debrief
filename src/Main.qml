@@ -295,7 +295,7 @@ ApplicationWindow {
 
                 Button {
                     objectName: "report"
-                    text: qsTr("Bug report with Claude")
+                    text: qsTr("Report with Claude")
                     enabled: backend.folder !== "" && backend.idle
                     Material.roundedScale: theme.radius
                     focusPolicy: Qt.NoFocus
@@ -330,7 +330,7 @@ ApplicationWindow {
                     { keys: "Space", action: qsTr("Start or stop a session") },
                     { keys: "S", action: qsTr("Take a screenshot now") },
                     { keys: "O", action: qsTr("Open the session folder") },
-                    { keys: "B", action: qsTr("Write a bug report with Claude") },
+                    { keys: "B", action: qsTr("Write a report with Claude") },
                     { keys: "?", action: qsTr("Show or hide the shortcuts") },
                     { keys: "Q", action: qsTr("Quit") }
                 ]

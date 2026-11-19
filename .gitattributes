@@ -1,0 +1,3 @@
+# The skill is embedded in the program byte for byte, so it keeps Unix line
+# endings on every checkout, whatever core.autocrlf says.
+src/skill/* text eol=lf

@@ -1,0 +1,185 @@
+<!doctype html>
+<!--
+  Debrief report page. Copy this file to bug-report.html in the session folder
+  and replace everything in {braces}. Keep the styles and class names; repeat
+  or delete the blocks as the session needs. The Debrief skill (SKILL.md beside
+  this file) says what goes where.
+
+  Status classes, used on .tag and on the nav .dot:
+    block  stops release      issue  defect or change request
+    open   question raised    good   praised, no change wanted
+  Screenshot grids: .shots (side by side), .shots one (full width, for wide
+  tables), .shots narrow (small crops). Several short entries side by side go
+  in <div class="cols">.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{Session title}</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6860; --line: #e2dfd6;
+  --accent: #2f6b4f; --quote: #f1efe8;
+  --block-bg: #fbe4e1; --block-ink: #9b2c1f;
+  --issue-bg: #fbefd2; --issue-ink: #7a5300;
+  --good-bg: #dff0e4; --good-ink: #1f6a3c;
+  --open-bg: #e3e9f6; --open-ink: #2f4a86;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171715; --panel: #201f1d; --ink: #ecebe6; --muted: #a09d94; --line: #35332f;
+    --accent: #7fc8a2; --quote: #2a2926;
+    --block-bg: #4a211c; --block-ink: #ffb4a8;
+    --issue-bg: #453410; --issue-ink: #f5d58a;
+    --good-bg: #1c3a28; --good-ink: #a4e0b9;
+    --open-bg: #232f4b; --open-ink: #b5c8f5;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1280px; margin: 0 auto; }
+nav { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 16px 28px 20px; border-right: 1px solid var(--line); font-size: 14px; }
+nav h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 6px; }
+nav h2:first-child { margin-top: 0; }
+nav a { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+nav a:hover { background: var(--quote); }
+nav .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; }
+main { padding: 36px 32px 80px; min-width: 0; }
+header h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; }
+.meta { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+.summary { font-size: 17px; max-width: 78ch; }
+section { margin-top: 56px; scroll-margin-top: 16px; }
+section > h2 { font-size: 23px; margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.code { font: 600 13px ui-monospace, monospace; background: var(--quote); border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px; }
+.verdict { color: var(--muted); margin: 0 0 18px; max-width: 78ch; }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.block { background: var(--block-bg); color: var(--block-ink); }
+.issue { background: var(--issue-bg); color: var(--issue-ink); }
+.good { background: var(--good-bg); color: var(--good-ink); }
+.open { background: var(--open-bg); color: var(--open-ink); }
+.dot.block { background: var(--block-ink); } .dot.issue { background: var(--issue-ink); }
+.dot.good { background: var(--good-ink); } .dot.open { background: var(--open-ink); }
+article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-top: 16px; }
+article h3 { font-size: 18px; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tc { font: 13px ui-monospace, monospace; color: var(--muted); }
+blockquote { margin: 10px 0; padding: 10px 14px; background: var(--quote); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; }
+blockquote p { margin: 0 0 6px; } blockquote p:last-child { margin: 0; }
+.note { color: var(--muted); font-size: 14px; }
+.shots { display: grid; gap: 14px; margin-top: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.shots.one { grid-template-columns: minmax(0, 1fr); }
+.shots.narrow { grid-template-columns: repeat(auto-fit, minmax(220px, 340px)); }
+figure { margin: 0; }
+figure a { display: block; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.full { font-size: 13px; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.tablewrap { overflow-x: auto; }
+ol, ul { padding-left: 22px; } li { margin: 3px 0; }
+.cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.cols article { margin-top: 0; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+  main { padding: 24px 16px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <h2>Report</h2>
+  <a href="#overview">Overview</a>
+  <a href="#scorecard">Scorecard</a>
+  <h2>{By area, e.g. "By lead sheet" or "By screen"}</h2>
+  <!-- One link per area section, worst status first. -->
+  <a href="#{area-id}">{Area name} <span class="dot block"></span></a>
+  <h2>{Across areas}</h2>
+  <a href="#{topic-id}">{Cross-cutting topic} <span class="dot open"></span></a>
+  <h2>Reference</h2>
+  <a href="#repro">Steps, expected, actual</a>
+</nav>
+
+<main>
+<header id="overview">
+  <h1>{Session title}</h1>
+  <p class="meta">Debrief session, {date and start time} · {duration} of audio · {n} screenshots · companion to <a href="bug-report.md">bug-report.md</a></p>
+  <p class="summary">{The summary paragraph: what was reviewed, the blocking findings first, then the smaller ones, then what was praised.}</p>
+  <p class="note">Time codes are positions in the recording. Quotes are the speech-to-text transcript verbatim, so some are garbled; where a garbled phrase is read a particular way, the entry says so. Each image is a crop of a screenshot; click it to open the full screenshot.</p>
+</header>
+
+<section id="scorecard">
+  <h2>Scorecard</h2>
+  <p class="verdict">One row per {area} reviewed, with the verdict given in the session.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>{Area}</th><th>Status</th><th>Verdict in the session</th><th>Main finding</th></tr>
+    <tr><td><a href="#{area-id}">{Area name}</a></td><td><span class="tag block">Blocking</span></td><td>"{the user's own verdict, quoted}"</td><td>{Main finding in a few words}</td></tr>
+  </table>
+  </div>
+  <p class="note">Legend: <span class="tag block">Blocking</span> stops release · <span class="tag issue">Issue</span> defect or change request · <span class="tag open">Open question</span> raised for discussion · <span class="tag good">Works well</span> praised, no change.</p>
+</section>
+
+<!-- One section per area. Inside it, one article per topic of feedback. -->
+<section id="{area-id}">
+  <h2><span class="code">{short code, if the product shows one}</span> {Area name} <span class="tag block">Blocking</span></h2>
+  <p class="verdict">{One or two sentences: where it was reviewed and the overall state.}</p>
+
+  <article>
+    <h3>{The finding, as a plain statement} <span class="tc">{HH:MM:SS}</span></h3>
+    <blockquote>
+      <p>"{What the user said, verbatim.}"</p>
+    </blockquote>
+    <p>{What the screenshot shows, in the product's own labels. Say how a garbled phrase was read.}</p>
+    <div class="shots">
+      <figure><a href="{shot-NN-HH-MM-SS.png}"><img src="crops/{NN-what-it-shows}.png" alt="{What the crop shows}"></a><figcaption>{What to look at.}</figcaption></figure>
+      <figure><a href="{shot-NN-HH-MM-SS.png}"><img src="crops/{NN-what-it-shows}.png" alt="{What the crop shows}"></a><figcaption>{What to look at.}</figcaption></figure>
+    </div>
+    <p class="note">{Anything visible but not commented on, or said nearby without a screenshot. Delete if none.}</p>
+  </article>
+</section>
+
+<!-- Feedback that applies across areas, or to none of them. -->
+<section id="{topic-id}">
+  <h2>{Cross-cutting topic} <span class="tag open">Open question</span></h2>
+  <p class="verdict">{Where it was raised and what it applies to.}</p>
+  <div class="cols">
+    <article>
+      <h3>{Finding} <span class="tc">{HH:MM:SS}</span> <span class="tag issue">Issue</span></h3>
+      <blockquote><p>"{Quote.}"</p></blockquote>
+      <p>{What the screenshot shows.}</p>
+      <div class="shots one"><figure><a href="{shot file}"><img src="crops/{crop}.png" alt="{alt}"></a><figcaption>{Caption.}</figcaption></figure></div>
+    </article>
+  </div>
+</section>
+
+<section id="repro">
+  <h2>Steps to reproduce, expected and actual</h2>
+  <p class="verdict">These are the steps the session shows.</p>
+  <div class="cols">
+    <!-- One article per return, environment, or flow that was used. -->
+    <article>
+      <h3>{A. Where}</h3>
+      <p class="note">{How to identify it, and which screenshots}</p>
+      <ol>
+        <li>{Step.}</li>
+      </ol>
+    </article>
+  </div>
+  <div class="tablewrap" style="margin-top:16px">
+  <table>
+    <tr><th>Area</th><th>Expected</th><th>Actual</th></tr>
+    <tr><td>{Area}</td><td>{Expected}</td><td>{Actual}</td></tr>
+  </table>
+  </div>
+</section>
+</main>
+</div>
+</body>
+</html>

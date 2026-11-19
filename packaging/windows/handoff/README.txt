@@ -4,10 +4,10 @@ DEBRIEF FOR WINDOWS 11                                             version 0.1.1
 Debug out loud. Debrief records your voice while you work, writes down what you
 say a sentence at a time, and takes a screenshot of the whole screen whenever
 you say "screenshot". Each screenshot is tied to the words you said around it,
-so a session reads as a story that Claude can turn into a bug report.
+so a session reads as a story that Claude can turn into a report.
 
 Everything runs on your machine. Nothing is sent anywhere unless you ask Claude
-for a bug report.
+for a report.
 
 
 INSTALL

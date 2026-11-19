@@ -31,8 +31,11 @@ sessions in `~/Documents/Debrief/` stay.
 2. Talk through what you're doing. When something is worth capturing, say
    "screenshot" and pause for a moment.
 3. Stop the session from the window, the bar, or `debrief stop`.
-4. Press B (**Bug report with Claude**) to have Claude Code write
-   `bug-report.md` in the session folder.
+4. Press B (**Report with Claude**) to have Claude Code write
+   `bug-report.md` and `bug-report.html` in the session folder. The page
+   groups the feedback by the part of the product it is about and shows crops
+   of the screenshots, which need ImageMagick (`magick`) or Python with
+   Pillow to cut.
 
 Closing the window doesn't stop a session; the bar shows it's still recording.
 The session folder and the keyboard shortcuts are described in the
@@ -54,8 +57,8 @@ click opens the session folder.
 debrief start | stop | toggle    # drive the session; start launches Debrief if needed
 debrief shot                     # screenshot now, e.g. from a key binding
 debrief status --json
-debrief prompt                   # the bug-report prompt the B button uses
-debrief skill install            # a Claude Code skill describing the session format
+debrief prompt                   # the report prompt the B button uses
+debrief skill install            # the Claude Code skill for the session format and the report; B installs it too
 ```
 
 Commands exit 0 or 1, report errors on stderr, and take `--json`.

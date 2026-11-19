@@ -7,7 +7,6 @@
     "one": "%Ln screenshot, %1 of audio, in %2",
     "other": "%Ln screenshots, %1 of audio, in %2"
   },
-  "Bug report with Claude": "Bug report with Claude",
   "Couldn't capture the screen. %1": "Couldn't capture the screen. %1",
   "Couldn't create the session folder %1.": "Couldn't create the session folder %1.",
   "Couldn't load the speech model %1.": "Couldn't load the speech model %1.",
@@ -44,6 +43,7 @@
   "Quit": "Quit",
   "Ready": "Ready",
   "Recording %1": "Recording %1",
+  "Report with Claude": "Report with Claude",
   "Saved in %1": "Saved in %1",
   "Saving audio and screenshots…": "Saving audio and screenshots…",
   "Saving session…": "Saving session…",
@@ -75,7 +75,7 @@
   },
   "Transcribing…": "Transcribing…",
   "What has been recorded is kept, and Debrief quits once the transcript is finished.": "What has been recorded is kept, and Debrief quits once the transcript is finished.",
-  "Write a bug report with Claude": "Write a bug report with Claude",
+  "Write a report with Claude": "Write a report with Claude",
   "ffmpeg isn't installed, so nothing can be recorded.": "ffmpeg isn't installed, so nothing can be recorded.",
   "grim isn't installed, so the screen can't be captured.": "grim isn't installed, so the screen can't be captured.",
   "xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal.": "xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal."
