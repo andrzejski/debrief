@@ -44,6 +44,9 @@ cp "$model" "$app/Contents/Resources/models/"
 # Qt's frameworks, plugins, and QML modules go inside the app, then the whole
 # of it is signed again, since copying them in breaks the linker's signature.
 "$qt/bin/macdeployqt" "$app" -qmldir="$root/src" -verbose=1
+# Debrief uses no database, and these plugins want client libraries that
+# aren't in the app.
+rm -rf "$app/Contents/PlugIns/sqldrivers"
 codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict "$app"
 

@@ -33,6 +33,19 @@
   done, as for a report. New strings "QA report" and "SOP" are in `en.json` and `da.json`.
   Tests on Windows: 41 passed, 0 failed, 3 skipped, three runs in a row. No SOP has been generated from a real
   session yet.
+- **macOS edition.** The built-in edition (`DEBRIEF_NATIVE`) now builds as `Debrief.app` too: system light/dark
+  theme, menu bar icon, microphone permission asked through Qt (`NSMicrophoneUsageDescription` in
+  `packaging/macos/Info.plist.in`), Claude opened in Terminal through a `.command` script, the finished report
+  shown with `open -R`. `packaging/macos/build.sh` runs `macdeployqt`, adds the speech model, signs ad hoc, and
+  zips. The **Test** workflow builds, tests, and packages it for arm64 and x86_64 and keeps the zips as run
+  artifacts; the **Release** workflow attaches both to a tag's release. Guide: `docs/macos.md`.
+  **Checked only on GitHub's runners** (build, tests, package, `--version` from the packaged app). Nobody has yet
+  run it at a real Mac: the microphone and Screen Recording prompts, Terminal launch, Finder reveal, menu bar icon,
+  and Dock-icon reopen all need a first try. Not signed with a Developer ID or notarized. No focus hand-back and
+  no start-at-login on macOS.
+- **README rewritten** for the app as it is now (three editions, trigger words, the QA report / SOP switch, the
+  files a report leaves, the command line), with a new `docs/screenshot.png` grabbed from the real window with a
+  staged session (made-up invoice data).
 - Not yet in a release zip: the 1.0.0 build from Omarchy predates this.
 
 ## Done for 1.0.0
