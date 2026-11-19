@@ -6,7 +6,7 @@ description: Read a Debrief session (a folder of audio, transcript, and voice-tr
 # Debrief sessions
 
 Debrief records the user talking while they debug or review something and takes
-a screenshot of the whole screen whenever they say "screenshot" (or press S /
+a screenshot of the whole screen whenever they say "screenshot", "screencap", "capture", or "snap" (or press S /
 run `debrief shot`). Each session is a folder under `~/Documents/Debrief/`,
 named by its start time and two or three words for what it was about
 (`2026-11-13_10-55-04_save-button-grey`). The description is added when the

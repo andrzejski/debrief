@@ -48,9 +48,10 @@ namespace Debrief {
 
 // HH:MM:SS from milliseconds.
 QString timecode(qint64 ms);
-// Whether the word "screenshot" was said: "screenshot", "screen shot",
-// "screenshots", in whatever case and punctuation the transcription came back
-// with.
+// Whether a screenshot was asked for: "screenshot", "screencap", "capture",
+// or "snap", and what they grow into ("screen shot", "screenshots",
+// "captured", "snapshot"), in whatever case and punctuation the transcription
+// came back with.
 bool asksForScreenshot(const QString &text);
 // The first few words of a description as the end of a folder name:
 // "Approve flow stalls." is "approve-flow-stalls". Empty when there are no

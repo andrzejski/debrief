@@ -14,7 +14,17 @@
 - **Folder opens when the report is done.** After **Report with Claude** launches, the app checks the session folder
   every second (for up to three hours). Once `Debrief-Report.html` is newer than the request and unchanged between two
   checks, with `Debrief-Report.md` beside it, Windows opens Explorer on the folder with the page selected; Linux opens
-  the folder with `QDesktopServices`. Test: `finishedReportIsShownOnce`. Tests on Windows: 38 passed, 0 failed, 3 skipped.
+  the folder with `QDesktopServices`. Test: `finishedReportIsShownOnce`. (38 tests at that point.)
+- **More trigger words.** "screencap" (or "screen cap"), "capture", and "snap" take a screenshot as "screenshot"
+  does (`Debrief::asksForScreenshot`). They match from the start of a word, so "captured" and "snapshot" count too.
+  The window's own hint text still names only "screenshot"; the translations were left alone.
+- **Terminal gives focus back (Windows only).** After **Report with Claude**, the app notes the window that was in
+  front, waits for the console or Windows Terminal window to come forward, and polls `Backend::folderTrusted`
+  (the folder's `hasTrustDialogAccepted` in `~/.claude.json`, or a new conversation file under
+  `~/.claude/projects/`). Once trusted, and only if the terminal is still in front, focus goes back to the earlier
+  window. Trust detection has a test (`folderIsTrustedOnceClaudeSaysSo`); the focus switch itself has **not been
+  tried in the packaged app yet**. Linux does nothing here so far (`hyprctl dispatch focuscurrentorlast` is the
+  likely way). Tests on Windows: 39 passed, 0 failed, 3 skipped.
 - Not yet in a release zip: the 1.0.0 build from Omarchy predates this.
 
 ## Done for 1.0.0

@@ -313,9 +313,13 @@ private slots:
         // The word alone is enough, however it is said or written down.
         for (const char *yes : {"Screenshot.", "OK, screen shot that!", "can you take a screenshot",
                                 "SCREENSHOT THIS", "the button is grey, screenshot, and then", "Screen-shot",
-                                "two screenshots of this", "the screenshot feature is broken"})
+                                "two screenshots of this", "the screenshot feature is broken",
+                                // The other words for it.
+                                "Screencap.", "screen cap this", "capture that", "Capture.", "okay, snap",
+                                "Snap!", "take a snapshot", "a screen capture of this"})
             QVERIFY2(Debrief::asksForScreenshot(yes), yes);
-        for (const char *no : {"this screen", "a shot of the screen", "the screen shows nothing", ""})
+        for (const char *no : {"this screen", "a shot of the screen", "the screen shows nothing", "",
+                               "a baseball cap", "it recaptures the value", "unsnap it"})
             QVERIFY2(!Debrief::asksForScreenshot(no), no);
     }
 
@@ -647,6 +651,40 @@ private slots:
         write(Backend::kReportPage, "<!doctype html>\n<title>again</title>\n");
         QTest::qWait(2500);
         QCOMPARE(ready.size(), 1);
+    }
+
+    void folderIsTrustedOnceClaudeSaysSo() {
+        QTemporaryDir home;
+        const QString folder = home.filePath("Sessions/2026-11-19_one two");
+        const QDateTime asked = QDateTime::currentDateTime();
+        auto write = [&](const QString &path, const QByteArray &text) {
+            QVERIFY(QDir().mkpath(QFileInfo(path).absolutePath()));
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            file.write(text);
+        };
+        auto config = [&](const QString &key, bool trusted) {
+            const QJsonObject project{{"hasTrustDialogAccepted", trusted}};
+            write(home.filePath(".claude.json"),
+                  QJsonDocument(QJsonObject{{"projects", QJsonObject{{key, project}}}}).toJson());
+        };
+        // Nothing from Claude yet, then the question still open.
+        QVERIFY(!Backend::folderTrusted(folder, asked, home.path()));
+        config(folder, false);
+        QVERIFY(!Backend::folderTrusted(folder, asked, home.path()));
+        // Another folder's answer is not this one's.
+        config(folder + "-other", true);
+        QVERIFY(!Backend::folderTrusted(folder, asked, home.path()));
+        // Answered, however the path is written.
+        config(QDir::toNativeSeparators(folder).toUpper(), true);
+        QVERIFY(Backend::folderTrusted(folder, asked, home.path()));
+        // With no answer on file, a conversation started there says the same.
+        config(folder, false);
+        const QString filed = QDir::cleanPath(folder).replace(QRegularExpression("[^A-Za-z0-9]"), "-");
+        write(home.filePath(".claude/projects/" + filed + "/abc.jsonl"), "{}\n");
+        QVERIFY(Backend::folderTrusted(folder, asked, home.path()));
+        // But not one from before the report was asked for.
+        QVERIFY(!Backend::folderTrusted(folder, asked.addSecs(3600), home.path()));
     }
 
     void skillInstallsWithItsReportPage() {

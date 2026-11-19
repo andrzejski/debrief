@@ -7,6 +7,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QProcess>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QThread>
@@ -66,6 +67,8 @@ Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *tr
     connect(m_transcriber, &Transcriber::transcribed, this, &Backend::onTranscribed);
     connect(m_namer, &Namer::named, this, &Backend::onNamed);
     m_reportPoll.setInterval(1000);
+    m_focusPoll.setInterval(500);
+    connect(&m_focusPoll, &QTimer::timeout, this, &Backend::checkTerminalFocus);
     connect(&m_reportPoll, &QTimer::timeout, this, &Backend::checkReport);
     writeState();
 }
@@ -554,6 +557,7 @@ void Backend::reportWithClaude() {
         return;
     }
     script.close();
+    const quintptr before = quintptr(GetForegroundWindow());
     QProcess process;
     process.setProgram("cmd.exe");
     process.setArguments({"/k", QDir::toNativeSeparators(script.fileName())});
@@ -567,6 +571,7 @@ void Backend::reportWithClaude() {
         return;
     }
     watchForReport(m_folder);
+    watchTerminalFocus(m_folder, before);
     return;
 #endif
     const QString terminal = QStandardPaths::findExecutable("xdg-terminal-exec");
@@ -630,4 +635,92 @@ void Backend::revealReport(const QString &folder) {
         return;
 #endif
     QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
+}
+
+bool Backend::folderTrusted(const QString &folder, const QDateTime &since, const QString &home) {
+    const QString base = home.isEmpty() ? QDir::homePath() : home;
+    const QString wanted = QDir::cleanPath(QDir::fromNativeSeparators(folder));
+    // Claude Code keeps the answer to its trust question per folder.
+    QFile config(base + "/.claude.json");
+    if (config.open(QIODevice::ReadOnly)) {
+        const QJsonObject projects = QJsonDocument::fromJson(config.readAll()).object().value("projects").toObject();
+        for (auto it = projects.begin(); it != projects.end(); ++it) {
+            if (QDir::cleanPath(QDir::fromNativeSeparators(it.key())).compare(wanted, Qt::CaseInsensitive) == 0
+                && it.value().toObject().value("hasTrustDialogAccepted").toBool())
+                return true;
+        }
+    }
+    // A folder under one already trusted is never asked about, so a
+    // conversation started there counts too. Claude Code files them under the
+    // folder's path with everything but letters and digits turned to dashes.
+    static const QRegularExpression notPlain("[^A-Za-z0-9]");
+    const QDir conversations(base + "/.claude/projects/" + QString(wanted).replace(notPlain, "-"));
+    const QFileInfoList started = conversations.entryInfoList({"*.jsonl"}, QDir::Files);
+    return std::any_of(started.begin(), started.end(),
+                       [&](const QFileInfo &file) { return file.lastModified() >= since.addSecs(-2); });
+}
+
+void Backend::watchTerminalFocus(const QString &folder, quintptr before) {
+    m_focusFolder = folder;
+    m_focusAsked = QDateTime::currentDateTime();
+    m_focusBefore = before;
+    m_focusTerminal = 0;
+    m_focusWaited.start();
+    m_focusPoll.start();
+}
+
+void Backend::checkTerminalFocus() {
+#ifdef Q_OS_WIN
+    constexpr qint64 kGiveUpMs = 10 * 60 * 1000;
+    if (m_focusFolder.isEmpty() || m_focusWaited.elapsed() > kGiveUpMs) {
+        m_focusPoll.stop();
+        return;
+    }
+    const HWND front = GetForegroundWindow();
+    if (!m_focusTerminal && front && quintptr(front) != m_focusBefore) {
+        // The terminal is the console or Windows Terminal window that comes
+        // to the front after the launch; anything else in front is the user
+        // having moved on already.
+        DWORD owner = 0;
+        GetWindowThreadProcessId(front, &owner);
+        wchar_t name[64] = {};
+        GetClassNameW(front, name, 64);
+        const QString type = QString::fromWCharArray(name);
+        if (owner != GetCurrentProcessId()
+            && (type == "ConsoleWindowClass" || type == "CASCADIA_HOSTING_WINDOW_CLASS"))
+            m_focusTerminal = quintptr(front);
+    }
+    if (!m_focusTerminal || !folderTrusted(m_focusFolder, m_focusAsked))
+        return;
+    m_focusPoll.stop();
+    m_focusFolder.clear();
+    const HWND terminal = HWND(m_focusTerminal);
+    // Only take focus from the terminal, never from wherever the user went.
+    if (front != terminal)
+        return;
+    // Back to the window that had focus before, or, if that has gone, the
+    // one just under the terminal, which is the one used most recently.
+    auto usable = [](HWND window) {
+        return window && IsWindow(window) && IsWindowVisible(window) && !IsIconic(window)
+               && GetWindowTextLengthW(window) > 0 && !(GetWindowLongPtrW(window, GWL_EXSTYLE) & WS_EX_TOOLWINDOW);
+    };
+    HWND target = HWND(m_focusBefore);
+    if (!usable(target) || target == terminal) {
+        target = GetWindow(terminal, GW_HWNDNEXT);
+        while (target && !usable(target))
+            target = GetWindow(target, GW_HWNDNEXT);
+    }
+    if (!target)
+        return;
+    // Windows only lets the thread with the foreground window hand it on, so
+    // borrow the terminal's input state for the call.
+    const DWORD theirs = GetWindowThreadProcessId(terminal, nullptr);
+    const DWORD ours = GetCurrentThreadId();
+    const bool joined = theirs != ours && AttachThreadInput(ours, theirs, TRUE);
+    SetForegroundWindow(target);
+    if (joined)
+        AttachThreadInput(ours, theirs, FALSE);
+#else
+    m_focusPoll.stop();
+#endif
 }

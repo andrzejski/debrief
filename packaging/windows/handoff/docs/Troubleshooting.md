@@ -34,7 +34,8 @@ When reporting a problem, send that file.
 | Sentences only appear after long delays | Sentences end when you pause, so leave a moment of quiet between them. In a noisy room a headset helps, since Debrief waits for quiet to end a sentence. |
 | "No speech model was found…" | `models\ggml-base.en.bin` is missing from the app folder. Reinstall, or put a model there (see the user guide). |
 | Words are often wrong | Use a closer microphone, or switch to the `small.en` model (see the user guide). |
-| Saying "screenshot" takes none | It has to be transcribed as "screenshot" or "screen shot". Say it in a short sentence and pause after. Check the transcript for what was heard. **Screenshot now** (S) always works. |
+| A screenshot you didn't ask for | "Capture" and "snap" are trigger words too, along with "screencap", and count wherever they come in a sentence ("it doesn't capture the input"). Delete the extra `shot-*.png` or leave it; the transcript shows the sentence it came from. |
+| Saying "screenshot" takes none | It has to be transcribed as "screenshot" or "screen shot" (or "screencap", "capture", or "snap"). Say it in a short sentence and pause after. Check the transcript for what was heard. **Screenshot now** (S) always works. |
 | Screenshots are black or miss a window | Some protected content (DRM video, certain banking or password windows) can't be captured by any app. |
 | A second monitor is misplaced in the screenshot | Mixed display scaling can shift where monitors are placed in the combined image. Each monitor's content is still complete. Please report it with your display layout. |
 

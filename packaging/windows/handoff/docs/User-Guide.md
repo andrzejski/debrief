@@ -9,7 +9,8 @@
    sentence is transcribed when you pause.
 3. **Say "screenshot"** when something is worth capturing, then pause. Any
    sentence with the word in it counts ("take a screenshot of this", "screenshot
-   please"). The screen is captured the moment you stop talking and kept only if
+   please"). "Screencap", "capture", and "snap" work the same way, so avoid
+   those words in sentences where you don't want a picture. The screen is captured the moment you stop talking and kept only if
    the word was in what you said, so the picture is of what you were looking at
    as you said it. All monitors are captured into one image.
 4. **Stop**: Space, **Stop session**, or the icon's menu. Debrief finishes the
@@ -17,6 +18,8 @@
 5. **Report**: press B (**Report with Claude**). A terminal opens in the
    session folder and starts Claude Code with a prompt that reads the transcript,
    looks at every screenshot, and writes `Debrief-Report.md` and `Debrief-Report.html`.
+   Claude Code first asks whether you trust the folder; once you say yes, the
+   terminal steps back and the window you were in before has focus again.
    The page groups the feedback by the part of the product it is about and shows
    crops of the screenshots, kept in `crops`. Once both reports are written,
    File Explorer opens on the session folder with `Debrief-Report.html` selected.

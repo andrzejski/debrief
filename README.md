@@ -26,7 +26,8 @@ Omarchy desktop already has: ffmpeg, grim, Superwhisper, and the Omarchy bar.
 1. Start a session: press Space in the window, or use the bar icon (Linux) or
    the notification-area icon (Windows).
 2. Talk through what you're doing. When something is worth capturing, say
-   "screenshot" and pause for a moment. Any sentence with the word in it counts.
+   "screenshot" and pause for a moment. Any sentence with the word in it counts,
+   and so do "screencap", "capture", and "snap".
    The screen is captured the moment you stop talking and kept only if the
    word was in what you said.
 3. Stop the session. Debrief finishes transcribing the last sentences, then
@@ -38,7 +39,8 @@ Omarchy desktop already has: ffmpeg, grim, Superwhisper, and the Omarchy bar.
    product it is about, each entry with crops of just the relevant part of
    the screenshot (kept in `crops/`). Once both are written, the session
    folder opens in the file manager (on Windows, Explorer with
-   `Debrief-Report.html` selected).
+   `Debrief-Report.html` selected). On Windows the terminal also gives focus
+   back to the window you were in once you have trusted the folder.
 
 Each session is one folder under `Documents/Debrief/`, with its recording
 beside it, so the folder alone can be dragged into Claude:

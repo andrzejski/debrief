@@ -29,7 +29,7 @@ sessions in `~/Documents/Debrief/` stay.
    or run `debrief start`. The window can stay closed; the bar icon turns red
    while recording.
 2. Talk through what you're doing. When something is worth capturing, say
-   "screenshot" and pause for a moment.
+   "screenshot" (or "screencap", "capture", or "snap") and pause for a moment.
 3. Stop the session from the window, the bar, or `debrief stop`.
 4. Press B (**Report with Claude**) to have Claude Code write
    `Debrief-Report.md` and `Debrief-Report.html` in the session folder. The page

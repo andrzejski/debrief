@@ -22,7 +22,7 @@ QString timecode(qint64 ms) {
 
 bool asksForScreenshot(const QString &text) {
     static const QRegularExpression notLetters("[^\\p{L}\\p{N}]+");
-    static const QRegularExpression said("\\bscreen ?shot");
+    static const QRegularExpression said("\\b(screen ?shot|screen ?cap|capture|snap)");
     return said.match(text.toLower().replace(notLetters, " ")).hasMatch();
 }
 
@@ -43,7 +43,8 @@ QString describe(const QStringList &sentences) {
         "will", "just", "like", "okay", "yeah", "yes", "well", "what", "when", "where", "why", "how", "which",
         "for", "from", "into", "onto", "out", "its", "it's", "you", "your", "they", "them", "been", "being",
         "about", "going", "gonna", "want", "now", "also", "some", "something", "thing", "see", "get", "got",
-        "one", "let", "take", "screenshot", "screenshots", "screen", "shot", "uhm", "hmm"};
+        "one", "let", "take", "screenshot", "screenshots", "screen", "shot", "screencap", "cap", "capture",
+        "snap", "uhm", "hmm"};
     QHash<QString, int> count;
     QStringList order;
     for (const QString &sentence : sentences) {

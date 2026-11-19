@@ -70,6 +70,10 @@ public:
     // Watches a session folder until Claude has written both reports, then
     // shows the folder with the page selected and emits reportReady.
     void watchForReport(const QString &folder);
+    // Whether Claude Code has been let into a folder: its trust flag for the
+    // folder in .claude.json, or a conversation started there since `since`.
+    // `home` is the user's home folder when empty; tests pass their own.
+    static bool folderTrusted(const QString &folder, const QDateTime &since, const QString &home = {});
 
     // What `debrief status --json` reports.
     QJsonObject status() const;
@@ -124,6 +128,8 @@ private:
     QString shotName(int number, qint64 timeMs) const;
     void checkReport();
     void revealReport(const QString &folder);
+    void watchTerminalFocus(const QString &folder, quintptr before);
+    void checkTerminalFocus();
 
     AudioSource *m_audio;
     Screenshotter *m_screenshots;
@@ -157,6 +163,16 @@ private:
     qint64 m_reportSeenSize = -1;
     QElapsedTimer m_reportWaited;
     bool m_revealReports = true;
+
+    // The terminal Claude opened in: once the folder is trusted there is
+    // nothing more to answer, so focus goes back to the window that had it
+    // before. Windows only; given up after ten minutes.
+    QTimer m_focusPoll;
+    QString m_focusFolder;
+    QDateTime m_focusAsked;
+    QElapsedTimer m_focusWaited;
+    quintptr m_focusBefore = 0;   // the window in front when the report was asked for
+    quintptr m_focusTerminal = 0; // the terminal's window, once it has come to the front
 
     QHash<int, Capture> m_captures;
     int m_nextManual = 1000000;
