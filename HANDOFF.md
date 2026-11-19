@@ -1,42 +1,65 @@
-# Debrief — Windows handoff (2026-11-18, work done on the PC)
+# Debrief handoff (2026-11-18, work done on the Windows PC)
 
 ## Where things are
-- **Repo (local only, no remote yet):** `C:\Users\AndrewKalinowski\Desktop\debrief\debrief`, branch `master`
-- **Latest commit:** `92528fe` — "Run on Windows 11, and stop sessions promptly there (0.1.1)" (41 files)
-- **Installed app:** `C:\Users\AndrewKalinowski\AppData\Local\Programs\Debrief\Debrief.exe` (0.1.1)
-- **Local Windows build + test output:** `build-win-local/` (git-ignored), `build-win-local/test-results.txt`
-- **Rollback of 0.1.0 exe:** `C:\Users\AndrewKalinowski\AppData\Local\DebriefDev\rollback-0.1.0\Debrief.exe`
-- **Windows dev toolchain (Qt 6.12 LLVM-MinGW, whisper.cpp 1.9.5, helper scripts):** `C:\Users\AndrewKalinowski\AppData\Local\DebriefDev\`
+- **GitHub:** `andrzejski/debrief`, branch `main` at `8a81311` "Debrief 0.1.2". The Linux Test workflow passed on it.
+- **Windows working copy:** `C:\Users\AndrewKalinowski\Desktop\debrief\debrief`, branch `master`, tracking `origin/main`.
+  A local branch `backup/master-before-rebase` holds the pre-rebase history and can be deleted.
+- **Windows dev toolchain:** `C:\Users\AndrewKalinowski\AppData\Local\DebriefDev\` (Qt 6.12 LLVM-MinGW, whisper.cpp 1.9.5, `run_tests.ps1`).
+  Local build and tests: `build-win-local/` (git-ignored).
+- **GitHub sign-in on Windows:** GitHub CLI (`gh`) is installed and signed in as `andrzejski`, and git uses it for github.com.
 
-## Done
-- Compared the installed app with the repo. The installed `Debrief.exe` is byte-identical to `build-win-local/Debrief.exe`,
-  so the repo holds everything the installed app has. The repo docs are newer than the installed copies.
-- Committed all of the Windows work that had been sitting uncommitted:
-  - Native mode (`DEBRIEF_NATIVE`, always on for Windows): Qt Multimedia mic, QScreen capture, in-process whisper.cpp
-  - Notification-area tray, named-pipe control, log at `%LOCALAPPDATA%\debrief\debrief.log`, Windows light/dark theme
-  - `packaging/windows/`: cross-compile (`build.sh`) and native (`build-native.ps1`) builds, installer/uninstaller, docs, licenses
-  - 0.1.1 stop fix: Claude naming timeout 30 s → 2 s, keep the final mic buffer after Stop, clearer "finishing" status, timing logs
-  - Tests build on Windows. Last native run: 35 passed, 0 failed, 3 skipped. Tests were not re-run for the commit.
-- `.gitignore` now ignores `/build-windows.zip` (327 MB build artifact, left on disk).
-- Set `core.filemode false` locally, because Windows was flagging `bin/build` and `bin/test` as mode changes.
+## Done in 0.1.2
+- **History joined.** The Windows PC had its own copy of the early commits. Its 0.1.1 fix now sits on top of
+  GitHub's `v0.1.0` work (Linux and Windows guides, PKGBUILD, release workflow). Nothing on GitHub was overwritten.
+- **0.1.1 stop fix** (`b14b6c0`): stopping a session on Windows finishes promptly.
+- **Session name kept on Windows** (`6edde53`): virus scanning or indexing can briefly hold a just-written file,
+  and Windows then refuses to rename the session folder (error 5). The rename now retries for up to a second.
+  This was the intermittent `sessionKeepsAScreenshotOnlyWhenAskedFor` failure, about 1 run in 3 to 1 in 8; it passed 70 of 70 after the fix.
+- **Report with Claude** (`4d7fd12`, from the Omarchy handoff patch, SHA-256 checked): the B button label, a prompt for
+  `bug-report.md` plus a `bug-report.html` page grouped by product area with crops, `report-template.html`, and the
+  skill installed on each press. Also added `.gitattributes` so `src/skill/*` stays LF on Windows (the embedded
+  `SKILL.md` must start `---\nname: debrief\n`), and the Windows User Guide now says crops need ImageMagick or Python with Pillow.
+- **Version 0.1.2** (`8a81311`): `src/main.cpp` (twice), `packaging/arch/PKGBUILD`, `packaging/windows/debrief.rc`,
+  `packaging/windows/handoff/README.txt`.
+- **Tests on Windows:** 37 passed, 0 failed, 3 skipped, three runs in a row.
 
-## Open / next steps
-1. **Put the repo on GitHub** (not done; `gh` isn't installed on this PC):
-   ```powershell
-   winget install --id GitHub.cli
-   gh auth login
-   gh repo create debrief --private --source "C:\Users\AndrewKalinowski\Desktop\debrief\debrief" --remote origin --push
-   git clone https://github.com/<username>/debrief.git C:\Users\AndrewKalinowski\GitHub\debrief
+## Next: build the Windows zip and release v0.1.2 (on Omarchy)
+No `v0.1.2` tag or release exists yet. Creating the release creates the tag, which starts the Linux package build.
+
+1. The Omarchy copy still has the report change as uncommitted work. It is in `main` now, so put it aside and update:
+   ```bash
+   cd ~/Work/debrief
+   git stash push -u -m "report-with-claude, now in main"
+   git pull
+   git log --oneline -1          # 8a81311 Debrief 0.1.2
    ```
-   After that, work from `GitHub\debrief` and retire the Desktop copy.
-2. **Packaging isn't certified.** `windeployqt` staging hit a platform-plugin discovery error, so no new 0.1.1 zip
-   has been verified. The installed app reuses the existing 0.1.0 Qt runtime folder.
-3. **Installed docs are stale.** `AppData\Local\Programs\Debrief\docs\Building.md` and `Troubleshooting.md` still have
-   the 0.1.0 "not tested on Windows" notes. They'll update with the next install from the repo.
-4. Qt warns that no fonts are deployed in the test run (`QFontDatabase: Cannot find font directory`). This is harmless for tests,
-   but worth checking in a packaged build.
-5. The live Claude naming test was skipped (needs `DEBRIEF_LIVE`). It's worth one manual check with `claude` on PATH.
+   Drop the stash once you've checked `main` has everything: `git stash drop`.
+2. Build the zip (toolchain set-up in `packaging/windows/handoff/docs/Building.md`):
+   ```bash
+   packaging/windows/build.sh
+   ```
+   It writes `build-windows/Debrief-0.1.2-windows-x64.zip`. Check that `.sha256` sits beside it.
+3. Create the release with the zip:
+   ```bash
+   v=0.1.2
+   gh release create "v$v" --target main --title "Debrief $v" --generate-notes \
+     "build-windows/Debrief-$v-windows-x64.zip" \
+     "build-windows/Debrief-$v-windows-x64.zip.sha256"
+   ```
+4. Optional: the aarch64 package, as in `docs/releasing.md` step 4.
+
+## Still open
+1. **Windows packaging isn't certified on Windows itself.** The native `windeployqt` staging hit a platform-plugin
+   discovery error, which is why the zip comes from `build.sh` on Linux. Try the 0.1.2 zip on this PC after release.
+2. The live Claude naming test was skipped (needs `DEBRIEF_LIVE`). Worth one manual check with `claude` on PATH.
+3. Qt warns that no fonts are deployed in the test run (`QFontDatabase: Cannot find font directory`). Harmless for
+   tests; worth checking in the packaged build.
+4. Work from `C:\Users\AndrewKalinowski\GitHub\debrief` on Windows: `gh repo clone andrzejski/debrief` there, then retire the Desktop copy.
+5. **Hosts file on Windows:** an `xteink-unlocker` block in `C:\Windows\System32\drivers\etc\hosts` was sending
+   `api.github.com` to `192.168.137.1`, which broke every GitHub sign-in. It's removed. If it goes back for the
+   e-reader unlocker, pushes from this PC will fail again.
 
 ## Background reading
-- `docs/windows-stop-fix.md` covers the stop-fix changes, how to build on Windows, test env vars, and diagnosis limits.
-- `packaging/windows/handoff/docs/` has the User Guide, Building, and Troubleshooting docs.
+- `docs/releasing.md`: the release steps.
+- `docs/windows-stop-fix.md`: the 0.1.1 stop fix, how to build on Windows, test env vars.
+- `packaging/windows/handoff/docs/`: User Guide, Building, Troubleshooting.
