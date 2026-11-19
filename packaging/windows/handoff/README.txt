@@ -1,4 +1,4 @@
-DEBRIEF FOR WINDOWS 11                                             version 0.1.1
+DEBRIEF FOR WINDOWS 11                                             version 0.1.2
 ================================================================================
 
 Debug out loud. Debrief records your voice while you work, writes down what you
