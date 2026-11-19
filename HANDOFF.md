@@ -31,7 +31,7 @@ No `v0.1.2` tag or release exists yet. Creating the release creates the tag, whi
    cd ~/Work/debrief
    git stash push -u -m "report-with-claude, now in main"
    git pull
-   git log --oneline -2          # this handoff, then 8a81311 Debrief 0.1.2
+   git log --oneline -5          # 8a81311 Debrief 0.1.2 is in the list, under the handoff commits
    ```
    Drop the stash once you've checked `main` has everything: `git stash drop`.
 2. Build the zip (toolchain set-up in `packaging/windows/handoff/docs/Building.md`):
