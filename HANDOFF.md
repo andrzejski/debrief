@@ -46,7 +46,13 @@
 - **README rewritten** for the app as it is now (three editions, trigger words, the QA report / SOP switch, the
   files a report leaves, the command line), with a new `docs/screenshot.png` grabbed from the real window with a
   staged session (made-up invoice data).
-- Not yet in a release zip: the 1.0.0 build from Omarchy predates this.
+- **v1.0.0 is released** (2026-11-19) with everything above: the Windows zip, both macOS zips, and the x86_64
+  Linux package. The Windows zip was built on this PC, not on Omarchy: `packaging/windows/build-native.ps1` to
+  compile, then `packaging/windows/package.py` with the dev Qt's own `llvm-objdump.exe` and `qmlimportscanner.exe`
+  (`--runtime` is `Qt/bin`), the model from the installed app, and `d3dcompiler_47.dll` copied from the installed
+  app because this Qt download has none. The staged app started on a clean PATH and answered `status`, so the
+  earlier platform-plugin error did not come back. Not attached: the aarch64 Linux package (`docs/releasing.md`
+  step 4).
 
 ## Done for 1.0.0
 - **History joined.** The Windows PC had its own copy of the early commits. Its 0.1.1 fix now sits on top of
@@ -63,8 +69,8 @@
   `packaging/windows/handoff/README.txt`.
 - **Tests on Windows:** 37 passed, 0 failed, 3 skipped, three runs in a row.
 
-## Next: build the Windows zip and release v1.0.0 (on Omarchy)
-No `v1.0.0` tag or release exists yet. Creating the release creates the tag, which starts the Linux package build.
+## Earlier plan: build the Windows zip and release v1.0.0 (on Omarchy)
+Superseded: v1.0.0 was released from the Windows PC on 2026-11-19 (see above). Step 1 still applies to the Omarchy copy.
 
 1. **Get a fresh copy.** On 2026-11-18 the GitHub repo was deleted and recreated so every commit is credited to
    `andrzejski` only (no work-account or Claude co-author credit). Every commit ID changed, so the old Omarchy copy
