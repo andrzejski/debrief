@@ -21,8 +21,8 @@ endif()
 option(DEBRIEF_NATIVE "Record, capture, and transcribe in-process" ${debrief_native_default})
 # The version a macOS bundle shows; keep it in step with src/main.cpp.
 set(DEBRIEF_VERSION 1.0.0)
-# The oldest macOS the bundle says it runs on (what Qt 6.8 asks for).
-set(DEBRIEF_MACOS_MINIMUM 12.0)
+# The oldest macOS the bundle says it runs on (what Qt 6.10 asks for).
+set(DEBRIEF_MACOS_MINIMUM 13.0)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2)
 

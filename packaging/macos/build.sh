@@ -24,7 +24,7 @@ fi
 [[ -x "$qt/bin/macdeployqt" ]] || { echo "Qt 6 wasn't found. Set QT_ROOT_DIR, or brew install qt." >&2; exit 1; }
 
 cmake -S "$root" -B "$build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$qt" \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-12.0}"
+  -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
 cmake --build "$build" --target debrief -j"$(sysctl -n hw.ncpu)"
 
 app="$build/Debrief.app"
