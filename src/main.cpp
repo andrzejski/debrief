@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
 #endif
         QCoreApplication app(argc, argv);
         app.setApplicationName("debrief");
-        app.setApplicationVersion("0.1.2");
+        app.setApplicationVersion("1.0.0");
         return Cli::run(app.arguments());
     }
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 #endif
     app.setApplicationName("debrief");
-    app.setApplicationVersion("0.1.2");
+    app.setApplicationVersion("1.0.0");
 #ifdef Q_OS_WIN
     if (handedOver())
         return 0;

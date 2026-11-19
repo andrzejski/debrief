@@ -1,7 +1,7 @@
 # Maintainer: Andrew Kalinowski <andrew.kalinowski.91@gmail.com>
 
 pkgname=debrief
-pkgver=0.1.2
+pkgver=1.0.0
 pkgrel=1
 pkgdesc='Debug out loud: a transcript with screenshots you ask for by voice'
 arch=('x86_64' 'aarch64')
