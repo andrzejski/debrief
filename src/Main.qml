@@ -101,6 +101,7 @@ ApplicationWindow {
                 RowLayout {
                     objectName: "reportKind"
                     spacing: 2
+                    Layout.leftMargin: 12
 
                     Label {
                         text: qsTr("QA report")
