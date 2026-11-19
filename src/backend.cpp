@@ -65,6 +65,8 @@ Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *tr
     connect(m_screenshots, &Screenshotter::captured, this, &Backend::onCaptured);
     connect(m_transcriber, &Transcriber::transcribed, this, &Backend::onTranscribed);
     connect(m_namer, &Namer::named, this, &Backend::onNamed);
+    m_reportPoll.setInterval(1000);
+    connect(&m_reportPoll, &QTimer::timeout, this, &Backend::checkReport);
     writeState();
 }
 
@@ -98,9 +100,9 @@ QString Backend::reportPrompt() {
         "This folder is a Debrief session. transcript.md is what I said, with each screenshot placed under the "
         "words I said when I took it; session.json has the same links (screenshots[].transcript_index, said, and "
         "context). Read both and look at every screenshot (the shot-*.png files here). Then write two reports "
-        "here, following the debrief skill. First bug-report.md: a one-paragraph summary, steps to reproduce, "
+        "here, following the debrief skill. First Debrief-Report.md: a one-paragraph summary, steps to reproduce, "
         "expected and actual behaviour, and then each thing I raised in order, with its screenshot embedded, its "
-        "time code, and what I said about it. Second bug-report.html: a self-contained page with the same feedback "
+        "time code, and what I said about it. Second Debrief-Report.html: a self-contained page with the same feedback "
         "regrouped by the part of the product it is about (each screen, feature, or document I reviewed), a "
         "scorecard at the top with my verdict on each, and under every entry my quote, its time code, and crops "
         "of just the part of the screenshot that entry is about, saved in a crops folder and linked to the full "
@@ -560,8 +562,11 @@ void Backend::reportWithClaude() {
         arguments->flags &= ~DWORD(CREATE_NO_WINDOW);
         arguments->startupInfo->dwFlags &= ~DWORD(STARTF_USESTDHANDLES);
     });
-    if (!process.startDetached())
+    if (!process.startDetached()) {
         setError(tr("Couldn't open Claude in a terminal."));
+        return;
+    }
+    watchForReport(m_folder);
     return;
 #endif
     const QString terminal = QStandardPaths::findExecutable("xdg-terminal-exec");
@@ -571,6 +576,58 @@ void Backend::reportWithClaude() {
     }
     // An interactive shell, so Claude Code is found wherever the user's own
     // shell setup puts it, and the terminal stays open after Claude exits.
-    startDetachedQuietly(terminal, {"bash", "-ic", "cd -- \"$1\" && claude \"$2\"; exec bash", "debrief",
-                                       m_folder, reportPrompt()});
+    if (startDetachedQuietly(terminal, {"bash", "-ic", "cd -- \"$1\" && claude \"$2\"; exec bash", "debrief",
+                                        m_folder, reportPrompt()}))
+        watchForReport(m_folder);
+}
+
+void Backend::watchForReport(const QString &folder) {
+    // One report at a time: asking again, here or for another session,
+    // follows the newest request.
+    m_reportFolder = folder;
+    m_reportAsked = QDateTime::currentDateTime();
+    m_reportSeen = {};
+    m_reportSeenSize = -1;
+    m_reportWaited.start();
+    m_reportPoll.start();
+}
+
+void Backend::checkReport() {
+    constexpr qint64 kGiveUpMs = 3 * 60 * 60 * 1000;
+    if (m_reportFolder.isEmpty() || m_reportWaited.elapsed() > kGiveUpMs) {
+        m_reportPoll.stop();
+        m_reportFolder.clear();
+        return;
+    }
+    // The page is written last. One from an earlier report doesn't count, and
+    // a page still being written waits until it is the same at two checks.
+    const QFileInfo markdown(m_reportFolder + "/" + kReportMarkdown);
+    const QFileInfo page(m_reportFolder + "/" + kReportPage);
+    if (!markdown.exists() || !page.exists() || page.lastModified() < m_reportAsked.addSecs(-2))
+        return;
+    if (page.lastModified() != m_reportSeen || page.size() != m_reportSeenSize) {
+        m_reportSeen = page.lastModified();
+        m_reportSeenSize = page.size();
+        return;
+    }
+    const QString folder = m_reportFolder;
+    m_reportPoll.stop();
+    m_reportFolder.clear();
+    if (m_revealReports)
+        revealReport(folder);
+    emit reportReady(folder);
+}
+
+void Backend::revealReport(const QString &folder) {
+#ifdef Q_OS_WIN
+    // Explorer opens on the session folder with the page selected. Its
+    // /select switch takes the path quoted after the comma, which QProcess
+    // can't produce from a plain argument list.
+    QProcess process;
+    process.setProgram("explorer.exe");
+    process.setNativeArguments("/select,\"" + QDir::toNativeSeparators(folder + "/" + kReportPage) + "\"");
+    if (process.startDetached())
+        return;
+#endif
+    QDesktopServices::openUrl(QUrl::fromLocalFile(folder));
 }

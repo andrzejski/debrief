@@ -8,6 +8,15 @@
   Local build and tests: `build-win-local/` (git-ignored).
 - **GitHub sign-in on Windows:** GitHub CLI (`gh`) is installed and signed in as `andrzejski`, and git uses it for github.com.
 
+## After 1.0.0 (2026-11-19, Windows PC)
+- **Reports renamed** to `Debrief-Report.md` and `Debrief-Report.html` (prompt, skill, template, docs). The names
+  live in `Backend::kReportMarkdown` / `kReportPage`. Older sessions keep their `bug-report.*` files.
+- **Folder opens when the report is done.** After **Report with Claude** launches, the app checks the session folder
+  every second (for up to three hours). Once `Debrief-Report.html` is newer than the request and unchanged between two
+  checks, with `Debrief-Report.md` beside it, Windows opens Explorer on the folder with the page selected; Linux opens
+  the folder with `QDesktopServices`. Test: `finishedReportIsShownOnce`. Tests on Windows: 38 passed, 0 failed, 3 skipped.
+- Not yet in a release zip: the 1.0.0 build from Omarchy predates this.
+
 ## Done for 1.0.0
 - **History joined.** The Windows PC had its own copy of the early commits. Its 0.1.1 fix now sits on top of
   GitHub's `v0.1.0` work (Linux and Windows guides, PKGBUILD, release workflow). Nothing on GitHub was overwritten.

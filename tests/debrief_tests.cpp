@@ -615,12 +615,38 @@ private slots:
 
     void reportPromptAsksForBothReports() {
         const QString prompt = Backend::reportPrompt();
-        QVERIFY(prompt.contains("bug-report.md"));
-        QVERIFY(prompt.contains("bug-report.html"));
+        QVERIFY(prompt.contains(Backend::kReportMarkdown));
+        QVERIFY(prompt.contains(Backend::kReportPage));
+        QVERIFY(!prompt.contains("bug-report"));
         QVERIFY(prompt.contains("crops"));
         // It rides inside a quoted argument in a .cmd script on Windows.
         QVERIFY(!prompt.contains('"'));
         QVERIFY(!prompt.contains('\n'));
+    }
+
+    void finishedReportIsShownOnce() {
+        Rig rig;
+        rig.backend.setRevealReports(false);
+        QTemporaryDir session;
+        auto write = [&](const QString &name, const QByteArray &text) {
+            QFile file(session.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            file.write(text);
+        };
+        QSignalSpy ready(&rig.backend, &Backend::reportReady);
+        rig.backend.watchForReport(session.path());
+        // The notes alone are not the report.
+        write(Backend::kReportMarkdown, "# Report\n");
+        QTest::qWait(2500);
+        QCOMPARE(ready.size(), 0);
+        // Once the page is there and has settled, the folder is shown.
+        write(Backend::kReportPage, "<!doctype html>\n");
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 6000);
+        QCOMPARE(ready.first().first().toString(), session.path());
+        // And only once, even if Claude touches the page again.
+        write(Backend::kReportPage, "<!doctype html>\n<title>again</title>\n");
+        QTest::qWait(2500);
+        QCOMPARE(ready.size(), 1);
     }
 
     void skillInstallsWithItsReportPage() {

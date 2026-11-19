@@ -16,9 +16,11 @@
    last sentences, then names the session after what it was about.
 5. **Report**: press B (**Report with Claude**). A terminal opens in the
    session folder and starts Claude Code with a prompt that reads the transcript,
-   looks at every screenshot, and writes `bug-report.md` and `bug-report.html`.
+   looks at every screenshot, and writes `Debrief-Report.md` and `Debrief-Report.html`.
    The page groups the feedback by the part of the product it is about and shows
-   crops of the screenshots, kept in `crops`. This needs
+   crops of the screenshots, kept in `crops`. Once both reports are written,
+   File Explorer opens on the session folder with `Debrief-Report.html` selected.
+   This needs
    [Claude Code](https://claude.com/claude-code) installed; without it,
    everything else still works and you can drag the session folder into any
    Claude conversation yourself.

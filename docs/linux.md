@@ -32,10 +32,11 @@ sessions in `~/Documents/Debrief/` stay.
    "screenshot" and pause for a moment.
 3. Stop the session from the window, the bar, or `debrief stop`.
 4. Press B (**Report with Claude**) to have Claude Code write
-   `bug-report.md` and `bug-report.html` in the session folder. The page
+   `Debrief-Report.md` and `Debrief-Report.html` in the session folder. The page
    groups the feedback by the part of the product it is about and shows crops
    of the screenshots, which need ImageMagick (`magick`) or Python with
-   Pillow to cut.
+   Pillow to cut. Once both are written, the session folder opens in the
+   file manager.
 
 Closing the window doesn't stop a session; the bar shows it's still recording.
 The session folder and the keyboard shortcuts are described in the

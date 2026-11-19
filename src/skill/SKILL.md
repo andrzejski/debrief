@@ -1,6 +1,6 @@
 ---
 name: debrief
-description: Read a Debrief session (a folder of audio, transcript, and voice-triggered screenshots) and write the report from it, bug-report.md plus a bug-report.html page grouped by product area with focused screenshot crops. Use when the user mentions Debrief, a session they recorded, ~/Documents/Debrief, the "Report with Claude" button, or asks for a report or bug report from their screenshots and narration.
+description: Read a Debrief session (a folder of audio, transcript, and voice-triggered screenshots) and write the report from it, Debrief-Report.md plus a Debrief-Report.html page grouped by product area with focused screenshot crops. Use when the user mentions Debrief, a session they recorded, ~/Documents/Debrief, the "Report with Claude" button, or asks for a report or bug report from their screenshots and narration.
 ---
 
 # Debrief sessions
@@ -40,9 +40,9 @@ Sessions from before this layout have `audio.wav` and `screenshots/` inside.
 The report is always two files in the session folder, plus a folder of crops:
 
 ```text
-bug-report.md      everything in the order it was said
-bug-report.html    the same feedback regrouped by the part of the product it is about
-crops/             the focused pieces of screenshots the page shows
+Debrief-Report.md    everything in the order it was said
+Debrief-Report.html  the same feedback regrouped by the part of the product it is about
+crops/               the focused pieces of screenshots the page shows
 ```
 
 Work in this order:
@@ -51,9 +51,9 @@ Work in this order:
    screenshot. Read what is on each one: headings, labels, numbers, footnotes,
    the address bar. Most of the detail in a good report comes from the
    screenshots, because the transcript is short and often garbled.
-2. Write `bug-report.md`.
+2. Write `Debrief-Report.md`.
 3. Cut the crops, look at them to check they show what was meant, then write
-   `bug-report.html`.
+   `Debrief-Report.html`.
 4. Check that every image and link in the page points at a file that exists.
 
 ### Rules for both files
@@ -79,7 +79,7 @@ Work in this order:
   taxpayer names out of the text. The screenshots may still show them, so say
   so in the hand-off message.
 
-### bug-report.md
+### Debrief-Report.md
 
 1. A title, then a short list: session start, audio length, screenshot count,
    the app and environment, and a line saying time codes are positions in the
@@ -95,10 +95,10 @@ Work in this order:
    the quote, and a sentence or two on what the screenshot shows. Remarks made
    without a screenshot go in the nearest entry with their time code.
 
-### bug-report.html
+### Debrief-Report.html
 
 Start from `report-template.html`, which is beside this file. Copy it to
-`bug-report.html`, keep its styles and class names, and fill it in. It is one
+`Debrief-Report.html`, keep its styles and class names, and fill it in. It is one
 self-contained file with no scripts and no outside resources, and it refers to
 the crops and screenshots by relative path.
 
@@ -117,7 +117,7 @@ the crops and screenshots by relative path.
 - **Feedback that fits no single area** (approval flow, navigation, anything
   said before the review proper) goes in its own sections after the areas.
 - **Steps to reproduce** and an expected-against-actual table close the page.
-- Link back to `bug-report.md` in the header.
+- Link back to `Debrief-Report.md` in the header.
 
 ### Crops
 

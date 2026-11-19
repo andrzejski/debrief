@@ -1,9 +1,11 @@
 #pragma once
 
+#include <QDateTime>
 #include <QHash>
 #include <QElapsedTimer>
 #include <QJsonObject>
 #include <QObject>
+#include <QTimer>
 #include <QVariantList>
 
 #include "segmenter.h"
@@ -63,11 +65,19 @@ public:
     Q_INVOKABLE void dismissError();
     // A desktop notification when a session is saved; tests turn it off.
     void setNotify(bool notify) { m_notify = notify; }
+    // Showing the finished report in the file manager; tests turn it off.
+    void setRevealReports(bool reveal) { m_revealReports = reveal; }
+    // Watches a session folder until Claude has written both reports, then
+    // shows the folder with the page selected and emits reportReady.
+    void watchForReport(const QString &folder);
 
     // What `debrief status --json` reports.
     QJsonObject status() const;
     static QString defaultStateFile();
     static QString reportPrompt();
+    // The two files the report is made of, in the session folder.
+    static inline const QString kReportMarkdown = QStringLiteral("Debrief-Report.md");
+    static inline const QString kReportPage = QStringLiteral("Debrief-Report.html");
     // The Claude Code skill and the report page it starts from, copied out of
     // the program into a skills folder.
     static QString defaultSkillFolder();
@@ -81,6 +91,7 @@ signals:
     void entriesChanged();
     void errorChanged();
     void finished(const QString &folder);
+    void reportReady(const QString &folder);
 
 private:
     enum State { Idle, Recording, Finishing };
@@ -111,6 +122,8 @@ private:
     void save();
     void writeState() const;
     QString shotName(int number, qint64 timeMs) const;
+    void checkReport();
+    void revealReport(const QString &folder);
 
     AudioSource *m_audio;
     Screenshotter *m_screenshots;
@@ -134,6 +147,16 @@ private:
     bool m_naming = false;
     QElapsedTimer m_finishTimer;
     bool m_notify = true;
+
+    // The report Claude is writing: checked every second until the page is
+    // newer than the request and has stopped changing, for up to three hours.
+    QTimer m_reportPoll;
+    QString m_reportFolder;
+    QDateTime m_reportAsked;
+    QDateTime m_reportSeen;   // the page's last-modified time at the previous check
+    qint64 m_reportSeenSize = -1;
+    QElapsedTimer m_reportWaited;
+    bool m_revealReports = true;
 
     QHash<int, Capture> m_captures;
     int m_nextManual = 1000000;

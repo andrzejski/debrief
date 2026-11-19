@@ -33,10 +33,12 @@ Omarchy desktop already has: ffmpeg, grim, Superwhisper, and the Omarchy bar.
    names the session after what it was about.
 4. Press B (**Report with Claude**) to open Claude Code in the session
    folder with a prompt that reads the transcript, looks at every screenshot,
-   and writes two reports: `bug-report.md`, everything in the order you said
-   it, and `bug-report.html`, the same feedback grouped by the part of the
+   and writes two reports: `Debrief-Report.md`, everything in the order you said
+   it, and `Debrief-Report.html`, the same feedback grouped by the part of the
    product it is about, each entry with crops of just the relevant part of
-   the screenshot (kept in `crops/`).
+   the screenshot (kept in `crops/`). Once both are written, the session
+   folder opens in the file manager (on Windows, Explorer with
+   `Debrief-Report.html` selected).
 
 Each session is one folder under `Documents/Debrief/`, with its recording
 beside it, so the folder alone can be dragged into Claude:
