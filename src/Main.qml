@@ -94,6 +94,39 @@ ApplicationWindow {
                     text: qsTr("%Ln screenshots", "", backend.shotCount)
                     color: win.muted
                 }
+
+                // What Report with Claude writes: a QA report on what was
+                // reviewed, or a standard operating procedure for what was
+                // walked through.
+                RowLayout {
+                    objectName: "reportKind"
+                    spacing: 2
+
+                    Label {
+                        text: qsTr("QA report")
+                        color: backend.sop ? win.muted : theme.foreground
+                        font.bold: !backend.sop
+                        TapHandler { onTapped: backend.sop = false }
+                    }
+                    Switch {
+                        id: reportKind
+                        objectName: "reportKindSwitch"
+                        checked: backend.sop
+                        // Space starts and stops a session, so it never lands here.
+                        focusPolicy: Qt.NoFocus
+                        Accessible.name: qsTr("SOP")
+                        onToggled: {
+                            backend.sop = checked
+                            checked = Qt.binding(function() { return backend.sop })
+                        }
+                    }
+                    Label {
+                        text: qsTr("SOP")
+                        color: backend.sop ? theme.foreground : win.muted
+                        font.bold: backend.sop
+                        TapHandler { onTapped: backend.sop = true }
+                    }
+                }
             }
 
             Label {

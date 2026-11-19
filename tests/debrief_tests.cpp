@@ -626,6 +626,63 @@ private slots:
         // It rides inside a quoted argument in a .cmd script on Windows.
         QVERIFY(!prompt.contains('"'));
         QVERIFY(!prompt.contains('\n'));
+        QVERIFY(!prompt.contains("SOP"));
+
+        // The other kind asks for a procedure under its own names, the same way.
+        const QString sop = Backend::reportPrompt(true);
+        QVERIFY(sop.contains(Backend::kSopMarkdown));
+        QVERIFY(sop.contains(Backend::kSopPage));
+        QVERIFY(sop.contains("standard operating procedure"));
+        QVERIFY(sop.contains("sop-template.html"));
+        QVERIFY(sop.contains("crops"));
+        QVERIFY(!sop.contains("Debrief-Report"));
+        QVERIFY(!sop.contains('"'));
+        QVERIFY(!sop.contains('\n'));
+        // Windows hands a command line of at most 8191 characters to cmd.
+        QVERIFY(sop.size() < 4000);
+    }
+
+    void reportKindIsRemembered() {
+        QTemporaryDir dir;
+        auto backend = [&] {
+            auto made = std::make_unique<Backend>(new FakeAudio, new FakeScreens, new FakeTranscriber, new FakeNamer,
+                                                  dir.filePath("sessions"), dir.filePath("run/state.json"));
+            made->setNotify(false);
+            return made;
+        };
+        auto first = backend();
+        QVERIFY(!first->sop());
+        QSignalSpy changed(first.get(), &Backend::sopChanged);
+        first->setSop(true);
+        first->setSop(true);
+        QCOMPARE(changed.size(), 1);
+        first.reset();
+        auto second = backend();
+        QVERIFY(second->sop());
+        second->setSop(false);
+        second.reset();
+        QVERIFY(!backend()->sop());
+    }
+
+    void finishedSopIsShownUnderItsOwnName() {
+        Rig rig;
+        rig.backend.setRevealReports(false);
+        QTemporaryDir session;
+        auto write = [&](const QString &name) {
+            QFile file(session.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            file.write("x\n");
+        };
+        QSignalSpy ready(&rig.backend, &Backend::reportReady);
+        rig.backend.watchForReport(session.path(), true);
+        // A QA report in the folder is not the procedure that was asked for.
+        write(Backend::kReportMarkdown);
+        write(Backend::kReportPage);
+        QTest::qWait(2500);
+        QCOMPARE(ready.size(), 0);
+        write(Backend::kSopMarkdown);
+        write(Backend::kSopPage);
+        QTRY_COMPARE_WITH_TIMEOUT(ready.size(), 1, 6000);
     }
 
     void finishedReportIsShownOnce() {
@@ -699,6 +756,13 @@ private slots:
         QFile page(folder + "/report-template.html");
         QVERIFY(page.open(QIODevice::ReadOnly));
         QVERIFY(page.readAll().contains("id=\"scorecard\""));
+        QVERIFY(text.contains("sop-template.html"));
+        QFile sop(folder + "/sop-template.html");
+        QVERIFY(sop.open(QIODevice::ReadOnly));
+        const QByteArray steps = sop.readAll();
+        QVERIFY(steps.contains("id=\"glance\""));
+        QVERIFY(steps.contains("Debrief-SOP.md"));
+        QVERIFY(!steps.contains("\r"));
         // A second install replaces what is there.
         QVERIFY(Backend::installSkill(folder));
     }
@@ -1055,6 +1119,21 @@ private slots:
 
         auto *status = window->findChild<QObject *>("status");
         QCOMPARE(status->property("text").toString(), QString("Ready"));
+
+        // The switch in the corner chooses between a QA report and an SOP,
+        // and follows the backend when the choice changes elsewhere.
+        auto *kind = window->findChild<QQuickItem *>("reportKindSwitch");
+        QVERIFY(kind);
+        QVERIFY(!kind->property("checked").toBool());
+        const QPointF middle = kind->mapToScene(QPointF(kind->width() / 2, kind->height() / 2));
+        QTest::mouseClick(window, Qt::LeftButton, {}, middle.toPoint());
+        QTRY_VERIFY(rig.backend.sop());
+        QVERIFY(kind->property("checked").toBool());
+        rig.backend.setSop(false);
+        QVERIFY(!kind->property("checked").toBool());
+        QTest::mouseClick(window, Qt::LeftButton, {}, middle.toPoint());
+        QTRY_VERIFY(rig.backend.sop());
+        rig.backend.setSop(false);
         QTest::keyClick(window, Qt::Key_Space);
         QVERIFY(rig.backend.recording());
         QCOMPARE(status->property("text").toString(), QString("Recording 00:00:00"));

@@ -15,7 +15,12 @@
    as you said it. All monitors are captured into one image.
 4. **Stop**: Space, **Stop session**, or the icon's menu. Debrief finishes the
    last sentences, then names the session after what it was about.
-5. **Report**: press B (**Report with Claude**). A terminal opens in the
+5. **Choose the kind of report** with the switch in the top right corner of the
+   window. **QA report** is feedback on what you reviewed, with a scorecard.
+   **SOP** is a standard operating procedure: a step-by-step guide to the task
+   you walked through, written to `Debrief-SOP.md` and `Debrief-SOP.html`. Both
+   use crops of your screenshots, and Debrief remembers the choice.
+6. **Report**: press B (**Report with Claude**). A terminal opens in the
    session folder and starts Claude Code with a prompt that reads the transcript,
    looks at every screenshot, and writes `Debrief-Report.md` and `Debrief-Report.html`.
    Claude Code first asks whether you trust the folder; once you say yes, the

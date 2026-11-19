@@ -24,7 +24,15 @@
   `~/.claude/projects/`). Once trusted, and only if the terminal is still in front, focus goes back to the earlier
   window. Trust detection has a test (`folderIsTrustedOnceClaudeSaysSo`); the focus switch itself has **not been
   tried in the packaged app yet**. Linux does nothing here so far (`hyprctl dispatch focuscurrentorlast` is the
-  likely way). Tests on Windows: 39 passed, 0 failed, 3 skipped.
+  likely way).
+- **QA report / SOP switch.** A switch in the top right corner of the window (`Backend::sop`, kept in
+  `settings.ini` in the app's config folder) chooses what **Report with Claude** asks for. QA report is the prompt
+  as before. SOP uses `Backend::reportPrompt(true)`, which asks for `Debrief-SOP.md` and `Debrief-SOP.html`: a
+  step-by-step procedure with the same crops, started from the new `src/skill/sop-template.html` and described in
+  the "Writing an SOP" part of `SKILL.md`. `debrief prompt sop` prints it. The folder opens when the SOP files are
+  done, as for a report. New strings "QA report" and "SOP" are in `en.json` and `da.json`.
+  Tests on Windows: 41 passed, 0 failed, 3 skipped, three runs in a row. No SOP has been generated from a real
+  session yet.
 - Not yet in a release zip: the 1.0.0 build from Omarchy predates this.
 
 ## Done for 1.0.0

@@ -9,6 +9,7 @@
 #include <QProcess>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QThread>
 #include <QUrl>
@@ -52,6 +53,12 @@ Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *tr
                              static_cast<QObject *>(transcriber), static_cast<QObject *>(namer)})
         service->setParent(this);
     m_notice = m_transcriber->unavailableReason();
+    // Beside the sessions when a root was given (tests), otherwise with the
+    // rest of the app's settings.
+    m_settingsFile = root.isEmpty()
+                         ? QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation) + "/settings.ini"
+                         : m_root + "/settings.ini";
+    m_sop = QSettings(m_settingsFile, QSettings::IniFormat).value("report/kind").toString() == "sop";
 
     connect(m_audio, &AudioSource::audio, this, &Backend::onAudio);
     connect(m_audio, &AudioSource::stopped, this, &Backend::onAudioStopped);
@@ -95,10 +102,35 @@ QString Backend::defaultStateFile() {
     return runtime + "/debrief/state.json";
 }
 
-QString Backend::reportPrompt() {
+void Backend::setSop(bool sop) {
+    if (m_sop == sop)
+        return;
+    m_sop = sop;
+    QDir().mkpath(QFileInfo(m_settingsFile).absolutePath());
+    QSettings(m_settingsFile, QSettings::IniFormat).setValue("report/kind", sop ? "sop" : "qa");
+    emit sopChanged();
+}
+
+QString Backend::reportPrompt(bool sop) {
     // One line with no double quotes: on Windows it travels inside a quoted
     // argument in a .cmd script. The skill has the detail; this says enough
     // to get the same report where the skill didn't load.
+    if (sop)
+        return QStringLiteral(
+            "This folder is a Debrief session in which I walked through how to do something. transcript.md is what "
+            "I said, with each screenshot placed under the words I said when I took it; session.json has the same "
+            "links (screenshots[].transcript_index, said, and context). Read both and look at every screenshot (the "
+            "shot-*.png files here). Then write a standard operating procedure for the process I walked through, as "
+            "two files here, following the SOP part of the debrief skill. First Debrief-SOP.md: a title naming the "
+            "procedure, a short purpose and scope, what is needed before starting, and then the numbered steps in the "
+            "order I did them, each written as an instruction, naming the screen, button, or field by its own label, "
+            "with its screenshot embedded and its time code. Second Debrief-SOP.html: a self-contained page with the "
+            "same procedure, an at-a-glance list of the steps at the top, and under every step crops of just the "
+            "part of the screenshot that step is about, saved in a crops folder and linked to the full screenshot. "
+            "Start the page from sop-template.html in the skill folder (~/.claude/skills/debrief) if it is there. "
+            "Include the tips, warnings, and checks I mentioned at the step they belong to, say where the transcript "
+            "is garbled and how you read it, mark any step the session leaves unclear as needing confirmation, and "
+            "don't invent steps the session doesn't show.");
     return QStringLiteral(
         "This folder is a Debrief session. transcript.md is what I said, with each screenshot placed under the "
         "words I said when I took it; session.json has the same links (screenshots[].transcript_index, said, and "
@@ -121,7 +153,7 @@ QString Backend::defaultSkillFolder() {
 bool Backend::installSkill(const QString &folder) {
     if (!QDir().mkpath(folder))
         return false;
-    for (const char *name : {"SKILL.md", "report-template.html"}) {
+    for (const char *name : {"SKILL.md", "report-template.html", "sop-template.html"}) {
         QFile source(QStringLiteral(":/skill/") + name);
         if (!source.open(QIODevice::ReadOnly))
             return false;
@@ -550,7 +582,7 @@ void Backend::reportWithClaude() {
     QTemporaryFile script(QDir::tempPath() + "/debrief-report-XXXXXX.cmd");
     script.setAutoRemove(false);
     const QByteArray lines = ("@echo off\r\nchcp 65001 >nul\r\ncd /d \"" + literal(QDir::toNativeSeparators(m_folder))
-                              + "\"\r\nclaude \"" + literal(reportPrompt()) + "\"\r\n")
+                              + "\"\r\nclaude \"" + literal(reportPrompt(m_sop)) + "\"\r\n")
                                  .toUtf8();
     if (!script.open() || script.write(lines) != lines.size()) {
         setError(tr("Couldn't open Claude in a terminal."));
@@ -570,7 +602,7 @@ void Backend::reportWithClaude() {
         setError(tr("Couldn't open Claude in a terminal."));
         return;
     }
-    watchForReport(m_folder);
+    watchForReport(m_folder, m_sop);
     watchTerminalFocus(m_folder, before);
     return;
 #endif
@@ -582,14 +614,16 @@ void Backend::reportWithClaude() {
     // An interactive shell, so Claude Code is found wherever the user's own
     // shell setup puts it, and the terminal stays open after Claude exits.
     if (startDetachedQuietly(terminal, {"bash", "-ic", "cd -- \"$1\" && claude \"$2\"; exec bash", "debrief",
-                                        m_folder, reportPrompt()}))
-        watchForReport(m_folder);
+                                        m_folder, reportPrompt(m_sop)}))
+        watchForReport(m_folder, m_sop);
 }
 
-void Backend::watchForReport(const QString &folder) {
+void Backend::watchForReport(const QString &folder, bool sop) {
     // One report at a time: asking again, here or for another session,
     // follows the newest request.
     m_reportFolder = folder;
+    m_reportMarkdown = sop ? kSopMarkdown : kReportMarkdown;
+    m_reportPage = sop ? kSopPage : kReportPage;
     m_reportAsked = QDateTime::currentDateTime();
     m_reportSeen = {};
     m_reportSeenSize = -1;
@@ -606,8 +640,8 @@ void Backend::checkReport() {
     }
     // The page is written last. One from an earlier report doesn't count, and
     // a page still being written waits until it is the same at two checks.
-    const QFileInfo markdown(m_reportFolder + "/" + kReportMarkdown);
-    const QFileInfo page(m_reportFolder + "/" + kReportPage);
+    const QFileInfo markdown(m_reportFolder + "/" + m_reportMarkdown);
+    const QFileInfo page(m_reportFolder + "/" + m_reportPage);
     if (!markdown.exists() || !page.exists() || page.lastModified() < m_reportAsked.addSecs(-2))
         return;
     if (page.lastModified() != m_reportSeen || page.size() != m_reportSeenSize) {
@@ -619,18 +653,18 @@ void Backend::checkReport() {
     m_reportPoll.stop();
     m_reportFolder.clear();
     if (m_revealReports)
-        revealReport(folder);
+        revealReport(folder, m_reportPage);
     emit reportReady(folder);
 }
 
-void Backend::revealReport(const QString &folder) {
+void Backend::revealReport(const QString &folder, const QString &page) {
 #ifdef Q_OS_WIN
     // Explorer opens on the session folder with the page selected. Its
     // /select switch takes the path quoted after the comma, which QProcess
     // can't produce from a plain argument list.
     QProcess process;
     process.setProgram("explorer.exe");
-    process.setNativeArguments("/select,\"" + QDir::toNativeSeparators(folder + "/" + kReportPage) + "\"");
+    process.setNativeArguments("/select,\"" + QDir::toNativeSeparators(folder + "/" + page) + "\"");
     if (process.startDetached())
         return;
 #endif

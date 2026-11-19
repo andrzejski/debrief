@@ -42,6 +42,12 @@ Omarchy desktop already has: ffmpeg, grim, Superwhisper, and the Omarchy bar.
    `Debrief-Report.html` selected). On Windows the terminal also gives focus
    back to the window you were in once you have trusted the folder.
 
+   The switch in the top right corner of the window chooses what is written.
+   **QA report** is the report above. **SOP** asks instead for a standard
+   operating procedure for what you walked through: `Debrief-SOP.md` and
+   `Debrief-SOP.html`, numbered steps with the same crops. The choice is
+   remembered.
+
 Each session is one folder under `Documents/Debrief/`, with its recording
 beside it, so the folder alone can be dragged into Claude:
 

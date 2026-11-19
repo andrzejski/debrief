@@ -1,6 +1,6 @@
 ---
 name: debrief
-description: Read a Debrief session (a folder of audio, transcript, and voice-triggered screenshots) and write the report from it, Debrief-Report.md plus a Debrief-Report.html page grouped by product area with focused screenshot crops. Use when the user mentions Debrief, a session they recorded, ~/Documents/Debrief, the "Report with Claude" button, or asks for a report or bug report from their screenshots and narration.
+description: Read a Debrief session (a folder of audio, transcript, and voice-triggered screenshots) and write the report from it: a QA report (Debrief-Report.md plus a Debrief-Report.html page grouped by product area with focused screenshot crops) or, when asked for an SOP, a standard operating procedure (Debrief-SOP.md plus Debrief-SOP.html, numbered steps with the same crops). Use when the user mentions Debrief, a session they recorded, ~/Documents/Debrief, the "Report with Claude" button, or asks for a report, bug report, walkthrough, or SOP from their screenshots and narration.
 ---
 
 # Debrief sessions
@@ -34,6 +34,11 @@ Sessions from before this layout have `audio.wav` and `screenshots/` inside.
   what is wrong on it.
 - `title` is the description in the folder's name; `finished` is false while
   the session is still recording.
+
+The app's switch chooses what **Report with Claude** asks for: **QA report**
+(the default, [Writing the report](#writing-the-report)) or **SOP**
+([Writing an SOP](#writing-an-sop)). Write the one the prompt asks for. When
+the prompt doesn't say, write the QA report.
 
 ## Writing the report
 
@@ -159,13 +164,87 @@ which phrases you had to interpret, and that the page needs `crops/` and the
 `shot-*.png` files kept beside it. Mention it if the crops show personal or
 client details.
 
+## Writing an SOP
+
+When the prompt asks for a standard operating procedure, the session is a
+walkthrough: the user did a task while saying how it is done. The output is a
+guide someone else can follow, not feedback on the product. It is two files in
+the session folder, plus the same folder of crops:
+
+```text
+Debrief-SOP.md    the procedure, step by step
+Debrief-SOP.html  the same procedure as a page, each step with its crops
+crops/            the focused pieces of screenshots the page shows
+```
+
+Work in the same order as for a report: read `transcript.md` and
+`session.json`, look at every screenshot, write `Debrief-SOP.md`, cut and
+check the crops, write `Debrief-SOP.html`, then check every image and link.
+The [rules for both files](#rules-for-both-files) and everything under
+[Crops](#crops) apply here too. On top of them:
+
+- **A step is one thing the user did**, in the order they did it. Several
+  remarks about the same action are one step; one screenshot can serve two
+  steps, with a different crop for each.
+- **Write each step as an instruction** ("Open **Returns**, then choose the
+  client"), with the control named by the label on screen. Put what the user
+  said beside it as a quote where it adds the reason or a warning.
+- **Say what the result looks like** when the screenshot shows it, so the
+  reader can tell the step worked.
+- **Keep tips, warnings, and checks at the step they belong to.** Tag a step
+  Caution when the user warned about it and Critical when they said it must
+  not be skipped or got wrong.
+- **Don't fill gaps.** If the user jumped from one screen to another without
+  saying how, write the step as far as the session shows it, tag it To
+  confirm, and list it under "To confirm". The same goes for a garbled phrase
+  with no clear reading.
+- **Leave out what isn't procedure**: asides, false starts the user corrected
+  ("the spreadsheet, I'm sorry the PowerPoint"), and remarks to the recorder.
+  A problem the user hit and worked around is a Caution on that step.
+- If the session is plainly a review and not a walkthrough, write the
+  procedure it does show and say so in the hand-off message.
+
+### Debrief-SOP.md
+
+1. A title that names the procedure, then a short list: session start, audio
+   length, screenshot count, the app and environment, and the line saying time
+   codes are positions in the recording and quotes are the transcript verbatim.
+2. **Purpose and scope**: one paragraph on what the procedure gets done and
+   when to use it, as far as the session says.
+3. **Before you start**: what was already open, set up, or to hand.
+4. **Steps**: one numbered `###` entry per step, each with a heading that is
+   the instruction and its time code, the actions as a short numbered list,
+   the full screenshot embedded, the expected result, and any quote, tip, or
+   warning.
+5. **To confirm**: the steps and details the session leaves unclear.
+
+### Debrief-SOP.html
+
+Start from `sop-template.html`, which is beside this file. Copy it to
+`Debrief-SOP.html`, keep its styles and class names, and fill it in. Like the
+report page it is one self-contained file that refers to the crops and
+screenshots by relative path.
+
+- **At a glance** at the top: one row per step with the action, where it
+  happens, and its tag.
+- **One section per step**, in order, each with its crops. Crop the control
+  to click and, where it is shown, the result, side by side.
+- **Before you start**, **To confirm**, and **Source session** as in the
+  template. Delete "To confirm" when nothing is unclear.
+- Link back to `Debrief-SOP.md` in the header.
+
+Hand off as for a report: where the two files are, the steps that need
+confirming, the phrases you had to interpret, and that the page needs `crops/`
+and the `shot-*.png` files beside it.
+
 ## Commands
 
 ```bash
 debrief status --json     # {"running":..,"state":"idle|recording|finishing","folder":..,"screenshots":..}
 debrief start | stop | toggle | shot
-debrief prompt            # the prompt the app's "Report with Claude" button uses
-debrief skill install     # puts this skill and report-template.html in ~/.claude/skills/debrief
+debrief prompt            # the prompt the app's "Report with Claude" button uses for a QA report
+debrief prompt sop        # the same for an SOP
+debrief skill install     # puts this skill and its two page templates in ~/.claude/skills/debrief
 ```
 
 The "Report with Claude" button installs this skill before it opens Claude, so

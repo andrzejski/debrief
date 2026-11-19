@@ -35,7 +35,9 @@ sessions in `~/Documents/Debrief/` stay.
    `Debrief-Report.md` and `Debrief-Report.html` in the session folder. The page
    groups the feedback by the part of the product it is about and shows crops
    of the screenshots, which need ImageMagick (`magick`) or Python with
-   Pillow to cut. Once both are written, the session folder opens in the
+   Pillow to cut. With the switch in the top right corner of the window on
+   **SOP**, it writes a standard operating procedure for what you walked
+   through instead (`Debrief-SOP.md` and `Debrief-SOP.html`). Once both are written, the session folder opens in the
    file manager.
 
 Closing the window doesn't stop a session; the bar shows it's still recording.

@@ -31,6 +31,7 @@ class Backend : public QObject {
     Q_PROPERTY(bool naming READ naming NOTIFY entriesChanged)
     Q_PROPERTY(QString error READ error NOTIFY errorChanged)
     Q_PROPERTY(QString notice READ notice CONSTANT)
+    Q_PROPERTY(bool sop READ sop WRITE setSop NOTIFY sopChanged)
 
 public:
     // The session takes ownership of the services. Tests pass fakes, a temp
@@ -54,6 +55,11 @@ public:
     QString error() const { return m_error; }
     QString notice() const { return m_notice; }
     const SessionLog &log() const { return m_log; }
+    // What Report with Claude asks for: a QA report on what was reviewed
+    // (the default), or a standard operating procedure for what was walked
+    // through. The choice is remembered between runs.
+    bool sop() const { return m_sop; }
+    void setSop(bool sop);
 
     Q_INVOKABLE void start();
     Q_INVOKABLE void stop();
@@ -69,7 +75,7 @@ public:
     void setRevealReports(bool reveal) { m_revealReports = reveal; }
     // Watches a session folder until Claude has written both reports, then
     // shows the folder with the page selected and emits reportReady.
-    void watchForReport(const QString &folder);
+    void watchForReport(const QString &folder, bool sop = false);
     // Whether Claude Code has been let into a folder: its trust flag for the
     // folder in .claude.json, or a conversation started there since `since`.
     // `home` is the user's home folder when empty; tests pass their own.
@@ -78,10 +84,13 @@ public:
     // What `debrief status --json` reports.
     QJsonObject status() const;
     static QString defaultStateFile();
-    static QString reportPrompt();
-    // The two files the report is made of, in the session folder.
+    static QString reportPrompt(bool sop = false);
+    // The two files the report is made of, in the session folder, and the
+    // two a standard operating procedure is made of.
     static inline const QString kReportMarkdown = QStringLiteral("Debrief-Report.md");
     static inline const QString kReportPage = QStringLiteral("Debrief-Report.html");
+    static inline const QString kSopMarkdown = QStringLiteral("Debrief-SOP.md");
+    static inline const QString kSopPage = QStringLiteral("Debrief-SOP.html");
     // The Claude Code skill and the report page it starts from, copied out of
     // the program into a skills folder.
     static QString defaultSkillFolder();
@@ -96,6 +105,7 @@ signals:
     void errorChanged();
     void finished(const QString &folder);
     void reportReady(const QString &folder);
+    void sopChanged();
 
 private:
     enum State { Idle, Recording, Finishing };
@@ -127,7 +137,7 @@ private:
     void writeState() const;
     QString shotName(int number, qint64 timeMs) const;
     void checkReport();
-    void revealReport(const QString &folder);
+    void revealReport(const QString &folder, const QString &page);
     void watchTerminalFocus(const QString &folder, quintptr before);
     void checkTerminalFocus();
 
@@ -137,7 +147,9 @@ private:
     Namer *m_namer;
     QString m_root;
     QString m_stateFile;
+    QString m_settingsFile;
     QString m_notice;
+    bool m_sop = false;
 
     State m_state = Idle;
     QString m_folder;
@@ -158,6 +170,8 @@ private:
     // newer than the request and has stopped changing, for up to three hours.
     QTimer m_reportPoll;
     QString m_reportFolder;
+    QString m_reportMarkdown; // the two files being waited for
+    QString m_reportPage;
     QDateTime m_reportAsked;
     QDateTime m_reportSeen;   // the page's last-modified time at the previous check
     qint64 m_reportSeenSize = -1;

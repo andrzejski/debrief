@@ -43,7 +43,8 @@ const char *usage =
     "  toggle               Start or stop\n"
     "  shot                 Take a screenshot in the running session now\n"
     "  status [--json]      Whether a session is recording\n"
-    "  prompt               Print the prompt that asks Claude for the report\n"
+    "  prompt [sop]         Print the prompt that asks Claude for the QA report,\n"
+    "                       or with sop, for a standard operating procedure\n"
     "  bar install|remove   Add or remove the Omarchy bar widget\n"
     "  skill install        Install the agent skill in ~/.claude/skills/debrief\n"
     "\n"
@@ -203,7 +204,7 @@ int Cli::run(const QStringList &arguments) {
     if (QStringList{"start", "stop", "toggle", "shot", "status"}.contains(command))
         return drive(command, json);
     if (command == "prompt") {
-        out() << Backend::reportPrompt() << "\n";
+        out() << Backend::reportPrompt(arguments.value(2) == "sop") << "\n";
         return 0;
     }
     if (command == "bar")

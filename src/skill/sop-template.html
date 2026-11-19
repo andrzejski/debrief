@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  Debrief SOP page. Copy this file to Debrief-SOP.html in the session folder
+  and replace everything in {braces}. Keep the styles and class names; repeat
+  or delete the blocks as the session needs. The Debrief skill (SKILL.md beside
+  this file) says what goes where.
+
+  Tags, used on .tag and on the nav .dot:
+    good   an ordinary step        issue  a step with a warning
+    open   needs confirming        block  must not be skipped or got wrong
+  Screenshot grids: .shots (side by side), .shots one (full width, for wide
+  tables), .shots narrow (small crops).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{Procedure title}</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1c1a; --muted: #6b6860; --line: #e2dfd6;
+  --accent: #2f6b4f; --quote: #f1efe8;
+  --block-bg: #fbe4e1; --block-ink: #9b2c1f;
+  --issue-bg: #fbefd2; --issue-ink: #7a5300;
+  --good-bg: #dff0e4; --good-ink: #1f6a3c;
+  --open-bg: #e3e9f6; --open-ink: #2f4a86;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171715; --panel: #201f1d; --ink: #ecebe6; --muted: #a09d94; --line: #35332f;
+    --accent: #7fc8a2; --quote: #2a2926;
+    --block-bg: #4a211c; --block-ink: #ffb4a8;
+    --issue-bg: #453410; --issue-ink: #f5d58a;
+    --good-bg: #1c3a28; --good-ink: #a4e0b9;
+    --open-bg: #232f4b; --open-ink: #b5c8f5;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: var(--accent); }
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1280px; margin: 0 auto; }
+nav { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 28px 16px 28px 20px; border-right: 1px solid var(--line); font-size: 14px; }
+nav h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 22px 0 6px; }
+nav h2:first-child { margin-top: 0; }
+nav a { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; }
+nav a:hover { background: var(--quote); }
+nav .dot { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 7px; }
+main { padding: 36px 32px 80px; min-width: 0; }
+header h1 { font-size: 30px; line-height: 1.2; margin: 0 0 6px; }
+.meta { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+.summary { font-size: 17px; max-width: 78ch; }
+section { margin-top: 56px; scroll-margin-top: 16px; }
+section > h2 { font-size: 23px; margin: 0 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.code { font: 600 13px ui-monospace, monospace; background: var(--quote); border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px; }
+.verdict { color: var(--muted); margin: 0 0 18px; max-width: 78ch; }
+.tag { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
+.block { background: var(--block-bg); color: var(--block-ink); }
+.issue { background: var(--issue-bg); color: var(--issue-ink); }
+.good { background: var(--good-bg); color: var(--good-ink); }
+.open { background: var(--open-bg); color: var(--open-ink); }
+.dot.block { background: var(--block-ink); } .dot.issue { background: var(--issue-ink); }
+.dot.good { background: var(--good-ink); } .dot.open { background: var(--open-ink); }
+article { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin-top: 16px; }
+article h3 { font-size: 18px; margin: 0 0 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tc { font: 13px ui-monospace, monospace; color: var(--muted); }
+blockquote { margin: 10px 0; padding: 10px 14px; background: var(--quote); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; }
+blockquote p { margin: 0 0 6px; } blockquote p:last-child { margin: 0; }
+.note { color: var(--muted); font-size: 14px; }
+.shots { display: grid; gap: 14px; margin-top: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.shots.one { grid-template-columns: minmax(0, 1fr); }
+.shots.narrow { grid-template-columns: repeat(auto-fit, minmax(220px, 340px)); }
+figure { margin: 0; }
+figure a { display: block; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+figure img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.full { font-size: 13px; margin-top: 12px; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.tablewrap { overflow-x: auto; }
+ol, ul { padding-left: 22px; } li { margin: 3px 0; }
+.cols { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.cols article { margin-top: 0; }
+@media (max-width: 860px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  nav { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 16px; }
+  main { padding: 24px 16px 60px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <h2>Procedure</h2>
+  <a href="#overview">Overview</a>
+  <a href="#glance">At a glance</a>
+  <a href="#before">Before you start</a>
+  <h2>Steps</h2>
+  <!-- One link per step, in order. -->
+  <a href="#step-1">1. {Step in a few words} <span class="dot good"></span></a>
+  <h2>Reference</h2>
+  <a href="#confirm">To confirm</a>
+  <a href="#source">Source session</a>
+</nav>
+
+<main>
+<header id="overview">
+  <h1>{What the procedure does, as a title}</h1>
+  <p class="meta">Standard operating procedure · from a Debrief session, {date and start time} · {duration} of audio · {n} screenshots · companion to <a href="Debrief-SOP.md">Debrief-SOP.md</a></p>
+  <p class="summary">{Purpose and scope: what this procedure gets done, when to use it, and who it is for, as far as the session says.}</p>
+  <p class="note">Written from a recorded walkthrough. Time codes are positions in the recording. Quotes are the speech-to-text transcript verbatim, so some are garbled; where a garbled phrase is read a particular way, the step says so. Each image is a crop of a screenshot; click it to open the full screenshot.</p>
+</header>
+
+<section id="glance">
+  <h2>At a glance</h2>
+  <p class="verdict">Every step in order. The detail and the screenshots are below.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>Step</th><th>Do this</th><th>Where</th><th>Note</th></tr>
+    <tr><td><a href="#step-1">1</a></td><td>{The action, as an instruction}</td><td>{Screen, menu, or field, by its own label}</td><td><span class="tag good">Step</span></td></tr>
+  </table>
+  </div>
+  <p class="note">Legend: <span class="tag good">Step</span> do as written · <span class="tag issue">Caution</span> a warning applies · <span class="tag block">Critical</span> must not be skipped or got wrong · <span class="tag open">To confirm</span> the session leaves it unclear.</p>
+</section>
+
+<section id="before">
+  <h2>Before you start</h2>
+  <p class="verdict">What the walkthrough already had open, set up, or to hand. Delete what the session doesn't show.</p>
+  <ul>
+    <li>{An application, access right, document, or value needed before step 1.}</li>
+  </ul>
+</section>
+
+<!-- One section per step, in the order they were done. -->
+<section id="step-1">
+  <h2><span class="code">Step 1</span> {The action, as an instruction} <span class="tag good">Step</span></h2>
+  <p class="verdict">{Where this happens, by the product's own labels, and what it is for.}</p>
+
+  <article>
+    <h3>{What to do} <span class="tc">{HH:MM:SS}</span></h3>
+    <ol>
+      <li>{One action: click, type, choose. Name the control by its label.}</li>
+    </ol>
+    <p>{What you should see when it has worked.}</p>
+    <div class="shots">
+      <figure><a href="{shot-NN-HH-MM-SS.png}"><img src="crops/{NN-what-it-shows}.png" alt="{What the crop shows}"></a><figcaption>{What to look at or click.}</figcaption></figure>
+      <figure><a href="{shot-NN-HH-MM-SS.png}"><img src="crops/{NN-what-it-shows}.png" alt="{What the crop shows}"></a><figcaption>{The result.}</figcaption></figure>
+    </div>
+    <blockquote>
+      <p>"{What was said at this step, verbatim, where it helps.}"</p>
+    </blockquote>
+    <p class="note">{A tip, warning, or check that was mentioned; how a garbled phrase was read; anything on screen that was not commented on. Delete if none.}</p>
+  </article>
+</section>
+
+<section id="confirm">
+  <h2>To confirm <span class="tag open">To confirm</span></h2>
+  <p class="verdict">Steps or details the session leaves unclear. Check these with whoever recorded it before relying on the procedure.</p>
+  <div class="tablewrap">
+  <table>
+    <tr><th>Step</th><th>What is unclear</th><th>What the session shows</th></tr>
+    <tr><td><a href="#step-1">1</a></td><td>{The gap or the garbled phrase}</td><td>{The quote or what is on screen}</td></tr>
+  </table>
+  </div>
+</section>
+
+<section id="source">
+  <h2>Source session</h2>
+  <p class="verdict">Where this procedure came from.</p>
+  <ul>
+    <li>Recorded {date and start time}, {duration}, {n} screenshots.</li>
+    <li>Reviewed in: {the application and environment, identified by what is not personal}.</li>
+    <li>Transcript: <a href="transcript.md">transcript.md</a></li>
+  </ul>
+</section>
+</main>
+</div>
+</body>
+</html>
