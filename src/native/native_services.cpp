@@ -9,6 +9,9 @@
 #include <QImage>
 #include <QMediaDevices>
 #include <QPainter>
+#ifdef Q_OS_MACOS
+#include <QPermissions>
+#endif
 #include <QPixmap>
 #include <QRegularExpression>
 #include <QScreen>
@@ -109,6 +112,29 @@ void QtAudioSource::release() {
 void QtAudioSource::start() {
     release();
     m_stopping = false;
+#ifdef Q_OS_MACOS
+    // macOS asks the user once; recording starts when they have said yes.
+    const QMicrophonePermission microphoneAccess;
+    switch (qApp->checkPermission(microphoneAccess)) {
+    case Qt::PermissionStatus::Undetermined:
+        qApp->requestPermission(microphoneAccess, this, [this](const QPermission &answer) {
+            if (m_stopping)
+                return;
+            if (answer.status() == Qt::PermissionStatus::Granted)
+                start();
+            else
+                emit failed(tr("Debrief isn't allowed to use the microphone. Turn it on in System Settings, under "
+                               "Privacy & Security, Microphone."));
+        });
+        return;
+    case Qt::PermissionStatus::Denied:
+        emit failed(tr("Debrief isn't allowed to use the microphone. Turn it on in System Settings, under "
+                       "Privacy & Security, Microphone."));
+        return;
+    case Qt::PermissionStatus::Granted:
+        break;
+    }
+#endif
     const QAudioDevice microphone = QMediaDevices::defaultAudioInput();
     if (microphone.isNull()) {
         emit failed(tr("No microphone was found, so nothing can be recorded."));
@@ -312,6 +338,8 @@ QString WhisperTranscriber::findModel() {
         return QFile::exists(chosen) ? chosen : QString();
     const QStringList folders{
         QCoreApplication::applicationDirPath() + "/models",
+        // Inside Debrief.app on macOS.
+        QCoreApplication::applicationDirPath() + "/../Resources/models",
         QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/models",
     };
     for (const QString &folder : folders) {

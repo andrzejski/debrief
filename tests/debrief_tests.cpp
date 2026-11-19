@@ -640,6 +640,10 @@ private slots:
         QVERIFY(!sop.contains('\n'));
         // Windows hands a command line of at most 8191 characters to cmd.
         QVERIFY(sop.size() < 4000);
+        // On macOS each sits in a double-quoted word of a shell script.
+        for (const QString &text : {prompt, sop})
+            for (const char *acted : {"$", "`", "\\", "!"})
+                QVERIFY2(!text.contains(acted), acted);
     }
 
     void reportKindIsRemembered() {
@@ -781,7 +785,7 @@ private slots:
     void themeFallsBack() {
         QTemporaryDir dir;
         Theme theme(dir.path());
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
         const bool light = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light;
         QCOMPARE(theme.light(), light);
         QCOMPARE(theme.accent(), QColor(light ? "#9a6700" : "#FFD60A"));
@@ -814,7 +818,7 @@ private slots:
     }
 
     void themeAsksHyprlandAgainOnlyWhenItReloads() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
         QSKIP("Hyprland uses a Linux shell fixture.");
 #endif
         // The fake Hyprland lives outside the theme directory, whose changes
@@ -846,7 +850,7 @@ private slots:
     }
 
     void themeReachesHyprlandOnceItListens() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
         QSKIP("Hyprland uses a Linux shell fixture.");
 #endif
         QTemporaryDir dir, hypr;

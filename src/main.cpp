@@ -4,6 +4,7 @@
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QMutex>
@@ -184,9 +185,10 @@ int main(int argc, char *argv[]) {
     bool staying = false;
 #ifdef DEBRIEF_NATIVE
     std::unique_ptr<Tray> tray;
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     // Always on Windows, even started at sign-in before the taskbar is up:
-    // the icon appears once there is somewhere to put it.
+    // the icon appears once there is somewhere to put it. On macOS it is the
+    // menu bar.
     const bool wantsTray = true;
 #else
     const bool wantsTray = qEnvironmentVariableIsSet("DEBRIEF_TRAY") && Tray::available();
@@ -209,6 +211,18 @@ int main(int argc, char *argv[]) {
                 tray->sayStillRunning();
         });
     }
+#endif
+
+#ifdef Q_OS_MACOS
+    // Clicking the Dock icon with the window closed brings the window back.
+    // Not in the first moments, so a hidden start stays hidden.
+    QElapsedTimer sinceStart;
+    sinceStart.start();
+    QObject::connect(&app, &QGuiApplication::applicationStateChanged, window, [&, window](Qt::ApplicationState state) {
+        if (state == Qt::ApplicationActive && sinceStart.elapsed() > 3000 && !window->isVisible()
+            && !window->property("quitting").toBool())
+            emit control.showRequested();
+    });
 #endif
 
     auto quitIfDone = [&] {

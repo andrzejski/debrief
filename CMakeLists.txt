@@ -12,8 +12,17 @@ endif()
 # On Omarchy the microphone, the screen, and the transcript come from ffmpeg,
 # grim, and Superwhisper. With this on they come from inside the app instead:
 # Qt Multimedia, QScreen, and whisper.cpp with a model file beside the program.
-# Windows has none of the three tools, so it is always on there.
-option(DEBRIEF_NATIVE "Record, capture, and transcribe in-process" ${WIN32})
+# Windows and macOS have none of the three tools, so it is always on there.
+if(WIN32 OR APPLE)
+  set(debrief_native_default ON)
+else()
+  set(debrief_native_default OFF)
+endif()
+option(DEBRIEF_NATIVE "Record, capture, and transcribe in-process" ${debrief_native_default})
+# The version a macOS bundle shows; keep it in step with src/main.cpp.
+set(DEBRIEF_VERSION 1.0.0)
+# The oldest macOS the bundle says it runs on (what Qt 6.8 asks for).
+set(DEBRIEF_MACOS_MINIMUM 12.0)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2)
 
@@ -26,7 +35,7 @@ target_include_directories(debrief_core PUBLIC src)
 target_link_libraries(debrief_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2)
 target_compile_options(debrief_core PUBLIC -Wall -Wextra)
-if(NOT WIN32)
+if(NOT WIN32 AND NOT APPLE)
   find_package(Qt6 REQUIRED COMPONENTS DBus)
   target_link_libraries(debrief_core PUBLIC Qt6::DBus)
 endif()
@@ -65,7 +74,13 @@ if(DEBRIEF_NATIVE)
   target_link_libraries(debrief_core PUBLIC Qt6::Multimedia Qt6::Widgets whisper)
 endif()
 
-add_executable(debrief src/main.cpp src/resources.qrc)
+if(APPLE)
+  # Qt's own command, so that it links in the microphone permission the
+  # Info.plist asks for.
+  qt_add_executable(debrief MACOSX_BUNDLE src/main.cpp src/resources.qrc)
+else()
+  add_executable(debrief src/main.cpp src/resources.qrc)
+endif()
 target_link_libraries(debrief PRIVATE debrief_core)
 
 if(WIN32)
@@ -73,6 +88,28 @@ if(WIN32)
   # gathers what it needs to run into a folder and a zip.
   target_sources(debrief PRIVATE packaging/windows/debrief.rc)
   set_target_properties(debrief PROPERTIES WIN32_EXECUTABLE ON OUTPUT_NAME Debrief)
+endif()
+
+if(APPLE)
+  # Debrief.app, with its icon made from the one PNG and an Info.plist that
+  # says why it wants the microphone; packaging/macos adds Qt, the speech
+  # model, and a zip.
+  set(debrief_icns ${CMAKE_BINARY_DIR}/Debrief.icns)
+  add_custom_command(OUTPUT ${debrief_icns}
+    COMMAND /bin/bash ${CMAKE_SOURCE_DIR}/packaging/macos/make-icns.sh
+            ${CMAKE_SOURCE_DIR}/packaging/macos/icon-1024.png ${debrief_icns}
+    DEPENDS packaging/macos/icon-1024.png packaging/macos/make-icns.sh
+    VERBATIM)
+  target_sources(debrief PRIVATE ${debrief_icns})
+  set_source_files_properties(${debrief_icns} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+  set_target_properties(debrief PROPERTIES
+    OUTPUT_NAME Debrief
+    MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/packaging/macos/Info.plist.in
+    MACOSX_BUNDLE_BUNDLE_NAME Debrief
+    MACOSX_BUNDLE_GUI_IDENTIFIER io.github.andrzejski.debrief
+    MACOSX_BUNDLE_SHORT_VERSION_STRING ${DEBRIEF_VERSION}
+    MACOSX_BUNDLE_BUNDLE_VERSION ${DEBRIEF_VERSION}
+    MACOSX_BUNDLE_ICON_FILE Debrief.icns)
 endif()
 
 # The tests load the real Main.qml, so they carry the resources too.
@@ -86,7 +123,7 @@ add_dependencies(debrief_tests debrief_namer_stub)
 add_test(NAME debrief_tests COMMAND debrief_tests)
 set_tests_properties(debrief_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
-if(WIN32)
+if(WIN32 OR APPLE)
   return()
 endif()
 

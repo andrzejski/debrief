@@ -3,7 +3,7 @@ name: Test
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, master, macos-port]
 
 permissions:
   contents: read
@@ -45,3 +45,51 @@ jobs:
 
       - name: Test
         run: su tester -c 'LANG=en_US.UTF-8 dbus-run-session -- bin/test'
+
+  macos:
+    name: Build, test, and package (macOS, ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: qtmultimedia
+          cache: true
+
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$QT_ROOT_DIR"
+          cmake --build build -j"$(sysctl -n hw.ncpu)"
+
+      - name: Test
+        run: QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure --no-tests=error
+
+      - name: Package
+        # The same script a release uses, so a broken package shows up here first.
+        run: bash packaging/macos/build.sh
+
+      - name: Check the packaged app answers
+        run: |
+          app="$(echo build-macos/Debrief-*-macos-*/Debrief.app)"
+          "$app/Contents/MacOS/Debrief" --version
+          "$app/Contents/MacOS/Debrief" prompt sop > /dev/null
+          ls "$app/Contents/Resources/models"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Debrief-macos-${{ matrix.arch }}
+          path: |
+            build-macos/Debrief-*-macos-*.zip
+            build-macos/Debrief-*-macos-*.zip.sha256
+          retention-days: 14

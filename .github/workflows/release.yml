@@ -1,8 +1,9 @@
 name: Release
 
-# Builds the Linux package for a version tag and attaches it to that tag's
-# release. The Windows zip is cross-compiled on a machine that has the Windows
-# toolchain and attached by hand; see docs/releasing.md.
+# Builds the Linux package and the two macOS zips for a version tag and
+# attaches them to that tag's release. The Windows zip is cross-compiled on a
+# machine that has the Windows toolchain and attached by hand; see
+# docs/releasing.md.
 
 on:
   push:
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag to build the Linux package for, e.g. v0.1.0
+        description: Tag to build the Linux package and macOS zips for, e.g. v0.1.0
         required: true
 
 permissions:
@@ -56,3 +57,38 @@ jobs:
         run: |
           gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "Debrief ${TAG#v}" --generate-notes
           gh release upload "$TAG" packaging/arch/debrief-*.pkg.tar.zst --clobber
+
+  macos-package:
+    name: macOS zip (${{ matrix.arch }})
+    # After the Linux job, which creates the release when there isn't one yet.
+    needs: linux-package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          modules: qtmultimedia
+          cache: true
+
+      - name: Build the zip
+        run: bash packaging/macos/build.sh
+
+      - name: Attach it to the release
+        run: gh release upload "$TAG" build-macos/Debrief-*-macos-${{ matrix.arch }}.zip build-macos/Debrief-*-macos-${{ matrix.arch }}.zip.sha256 --clobber

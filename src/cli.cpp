@@ -111,6 +111,11 @@ int bar(const QString &action) {
     err() << "The bar widget is for Omarchy. On Windows, Debrief sits in the notification area instead.\n";
     return 1;
 #endif
+#ifdef Q_OS_MACOS
+    Q_UNUSED(action);
+    err() << "The bar widget is for Omarchy. On macOS, Debrief sits in the menu bar instead.\n";
+    return 1;
+#endif
     const QString target = QDir::homePath() + "/.config/omarchy/plugins/debrief-bar";
     if (action == "remove") {
         runQuiet("omarchy", {"plugin", "disable", "debrief.bar"});

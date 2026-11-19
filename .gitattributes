@@ -1,3 +1,8 @@
 # The skill is embedded in the program byte for byte, so it keeps Unix line
 # endings on every checkout, whatever core.autocrlf says.
 src/skill/* text eol=lf
+# Shell scripts and what the macOS build reads run on machines that expect
+# Unix line endings.
+*.sh text eol=lf
+packaging/macos/* text eol=lf
+packaging/macos/*.png binary

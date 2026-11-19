@@ -10,17 +10,17 @@
 #include <QStandardPaths>
 #include <cmath>
 
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
 #include <QGuiApplication>
 #include <QStyleHints>
 #endif
 
 namespace {
 
-// Windows has no Omarchy theme; there the app follows the system's light or
-// dark mode instead.
+// Windows and macOS have no Omarchy theme; there the app follows the system's
+// light or dark mode instead.
 bool systemIsLight() {
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     return qGuiApp && QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Light;
 #else
     return false;
@@ -130,7 +130,7 @@ Theme::Theme(const QString &directory, QObject *parent, const QString &hyprctl, 
         m_events.connectToServer(events, QIODevice::ReadOnly);
     refreshRounding();
     reload();
-#ifdef Q_OS_WIN
+#if defined(Q_OS_WIN) || defined(Q_OS_MACOS)
     // Windows 11 rounds its own controls about this much.
     m_radius = 6;
     if (qGuiApp)

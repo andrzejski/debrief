@@ -11,6 +11,7 @@
 #include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QThread>
 #include <QUrl>
 #include <algorithm>
@@ -19,7 +20,6 @@
 #include "native/native_services.h"
 #endif
 #ifdef Q_OS_WIN
-#include <QTemporaryFile>
 #include <windows.h>
 #endif
 
@@ -484,8 +484,8 @@ void Backend::onNamed(const QString &words) {
     emit folderChanged();
     setState(Idle);
     emit entriesChanged();
-    // On Windows the notification area says it, from the finished signal.
-#ifndef Q_OS_WIN
+    // On Windows and macOS the tray icon says it, from the finished signal.
+#if !defined(Q_OS_WIN) && !defined(Q_OS_MACOS)
     if (m_notify)
         startDetachedQuietly("notify-send",
                             {"--app-name=Debrief", "--icon=debrief", tr("Debrief session saved"),
@@ -606,6 +606,29 @@ void Backend::reportWithClaude() {
     watchTerminalFocus(m_folder, before);
     return;
 #endif
+#ifdef Q_OS_MACOS
+    // Terminal runs a .command file in a window of its own. The script's
+    // shell is a login, interactive one, so Claude Code is found wherever the
+    // user's own shell setup puts it, and the window stays after Claude
+    // exits. The prompt has nothing a double-quoted shell word would act on.
+    QTemporaryFile script(QDir::tempPath() + "/debrief-report-XXXXXX.command");
+    script.setAutoRemove(false);
+    const QByteArray lines = ("#!/bin/zsh -il\ncd -- '" + QString(m_folder).replace("'", "'\\''")
+                              + "' || exit 1\nclaude \"" + reportPrompt(m_sop) + "\"\nexec /bin/zsh -il\n")
+                                 .toUtf8();
+    if (!script.open() || script.write(lines) != lines.size()) {
+        setError(tr("Couldn't open Claude in a terminal."));
+        return;
+    }
+    script.close();
+    QFile::setPermissions(script.fileName(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    if (!startDetachedQuietly("/usr/bin/open", {"-a", "Terminal", script.fileName()})) {
+        setError(tr("Couldn't open Claude in a terminal."));
+        return;
+    }
+    watchForReport(m_folder, m_sop);
+    return;
+#endif
     const QString terminal = QStandardPaths::findExecutable("xdg-terminal-exec");
     if (terminal.isEmpty()) {
         setError(tr("xdg-terminal-exec isn't installed, so Claude can't be opened in a terminal."));
@@ -666,6 +689,11 @@ void Backend::revealReport(const QString &folder, const QString &page) {
     process.setProgram("explorer.exe");
     process.setNativeArguments("/select,\"" + QDir::toNativeSeparators(folder + "/" + page) + "\"");
     if (process.startDetached())
+        return;
+#endif
+#ifdef Q_OS_MACOS
+    // Finder opens on the session folder with the page selected.
+    if (startDetachedQuietly("/usr/bin/open", {"-R", folder + "/" + page}))
         return;
 #endif
     QDesktopServices::openUrl(QUrl::fromLocalFile(folder));

@@ -47,8 +47,13 @@ void Tray::sayStillRunning() {
     m_said = true;
     m_saved = false;
     m_icon.showMessage(tr("Debrief is still running"),
+#ifdef Q_OS_MACOS
+                       tr("Find it in the menu bar, at the top of the screen. Click its icon to start a session "
+                          "or to quit."),
+#else
                        tr("Find it in the notification area, by the clock. Right-click its icon to start a "
                           "session or to quit."),
+#endif
                        icon(false));
 }
 

@@ -1,0 +1,20 @@
+Debrief for macOS includes the following software. Debrief itself is under
+the MIT license (Debrief-LICENSE.txt).
+
+Qt 6  (the Qt frameworks, plugins, and QML modules inside Debrief.app, under
+       Contents/Frameworks, Contents/PlugIns, and Contents/Resources/qml)
+    Copyright (C) The Qt Company Ltd. and other contributors.
+    Used under the GNU Lesser General Public License, version 3
+    (Qt-LGPL-3.0.txt, which builds on GPL-3.0.txt). Qt is linked dynamically:
+    you may replace these frameworks with your own build of the same Qt
+    version. The version is in Contents/Frameworks/QtCore.framework.
+    Source code: https://download.qt.io/official_releases/qt/
+    Qt's own third-party notices: https://doc.qt.io/qt-6/licenses-used-in-qt.html
+
+whisper.cpp 1.9.5 and ggml  (compiled into the Debrief program)
+    Copyright (c) 2023-2026 The ggml authors. MIT license
+    (whisper.cpp-LICENSE.txt). https://github.com/ggml-org/whisper.cpp
+
+Whisper model weights  (Contents/Resources/models/ggml-base.en.bin)
+    Copyright (c) 2022 OpenAI. MIT license. Converted to ggml format by the
+    whisper.cpp project. https://github.com/openai/whisper
