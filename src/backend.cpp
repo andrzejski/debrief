@@ -9,6 +9,7 @@
 #include <QProcess>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QThread>
 #include <QUrl>
 #include <algorithm>
 
@@ -19,6 +20,27 @@
 #include <QTemporaryFile>
 #include <windows.h>
 #endif
+
+namespace {
+// Windows refuses to rename a file or folder while another program has
+// something in it open, and virus scanning or search indexing opens what the
+// session has just written for a moment. So try again for up to a second
+// before settling for the name it already has.
+bool renameSoon(const QString &from, const QString &to) {
+    for (int attempt = 0;; ++attempt) {
+        if (QFileInfo(from).isDir() ? QDir().rename(from, to) : QFile::rename(from, to))
+            return true;
+#ifdef Q_OS_WIN
+        if (attempt < 20 && QFileInfo::exists(from) && !QFileInfo::exists(to)) {
+            QThread::msleep(50);
+            continue;
+        }
+#endif
+        qWarning("Couldn't rename %s to %s", qPrintable(from), qPrintable(to));
+        return false;
+    }
+}
+} // namespace
 
 Backend::Backend(AudioSource *audio, Screenshotter *screenshots, Transcriber *transcriber, Namer *namer,
                  const QString &root, const QString &stateFile, QObject *parent)
@@ -383,12 +405,12 @@ void Backend::onNamed(const QString &words) {
     for (int n = 2; QFileInfo::exists(named) || QFileInfo::exists(named + ".wav"); ++n)
         named = m_folder + "_" + about + QString("-%1").arg(n);
     // Both or neither, so the recording always carries its folder's name.
-    if (QDir().rename(m_folder, named)) {
-        if (QFile::rename(m_folder + ".wav", named + ".wav")) {
+    if (renameSoon(m_folder, named)) {
+        if (renameSoon(m_folder + ".wav", named + ".wav")) {
             m_folder = named;
             m_log.audio = "../" + QFileInfo(named).fileName() + ".wav";
         } else {
-            QDir().rename(named, m_folder);
+            renameSoon(named, m_folder);
         }
     }
     m_log.title = about.replace('-', ' ');
